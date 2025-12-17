@@ -1,0 +1,141 @@
+import React, { useState } from 'react';
+import { Bot, Trash2, Settings, ChevronDown, ChevronUp, Wrench } from 'lucide-react';
+
+interface Tool {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface Agent {
+  id: string;
+  role: string;
+  goal: string;
+  backstory: string;
+  toolIds: string[];
+  humanInput: boolean;
+}
+
+interface AgentCardProps {
+  agent: Agent;
+  availableTools: Tool[];
+  onUpdate: (updates: Partial<Agent>) => void;
+  onRemove: () => void;
+}
+
+export default function AgentCard({ agent, availableTools, onUpdate, onRemove }: AgentCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const toggleTool = (toolId: string) => {
+    const current = agent.toolIds;
+    const updated = current.includes(toolId)
+      ? current.filter(id => id !== toolId)
+      : [...current, toolId];
+    onUpdate({ toolIds: updated });
+  };
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden transition-all hover:border-slate-700 group">
+      {/* Header (Always Visible) */}
+      <div className="p-3 flex items-start gap-3 cursor-pointer bg-slate-900" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className={`mt-1 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isExpanded ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'}`}>
+          <Bot className="w-5 h-5" />
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-200 text-sm truncate pr-2">{agent.role}</h3>
+            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+          </div>
+          <p className="text-xs text-slate-500 truncate">{agent.goal}</p>
+          
+          {/* Mini Badges */}
+          {!isExpanded && (
+            <div className="flex gap-2 mt-2">
+              {agent.toolIds.length > 0 && (
+                <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+                  <Wrench className="w-3 h-3" /> {agent.toolIds.length}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded Config */}
+      {isExpanded && (
+        <div className="p-3 border-t border-slate-800 bg-slate-950/30 space-y-4 animate-in slide-in-from-top-2 duration-200">
+          
+          {/* Role & Goal */}
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Role</label>
+              <input 
+                type="text" 
+                value={agent.role}
+                onChange={(e) => onUpdate({ role: e.target.value })}
+                className="w-full bg-slate-800 border-none rounded px-2 py-1.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Goal</label>
+              <input 
+                type="text" 
+                value={agent.goal}
+                onChange={(e) => onUpdate({ goal: e.target.value })}
+                className="w-full bg-slate-800 border-none rounded px-2 py-1.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Tools Selection */}
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-2">
+              <Wrench className="w-3 h-3" /> Tools ({agent.toolIds.length})
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {availableTools.map(tool => (
+                <button
+                  key={tool.id}
+                  onClick={() => toggleTool(tool.id)}
+                  className={`flex items-center gap-3 p-2 rounded text-left text-xs transition-colors border ${
+                    agent.toolIds.includes(tool.id) 
+                      ? 'bg-indigo-900/20 border-indigo-500/50 text-indigo-300' 
+                      : 'bg-slate-800/50 border-slate-800 text-slate-400 hover:bg-slate-800'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full border ${agent.toolIds.includes(tool.id) ? 'bg-indigo-500 border-indigo-500' : 'border-slate-600'}`} />
+                  <div>
+                    <span className="font-bold block">{tool.name}</span>
+                    <span className="opacity-70 text-[10px]">{tool.description}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="pt-2 flex justify-between items-center border-t border-slate-800/50">
+            <label className="flex items-center gap-2 cursor-pointer group">
+               <input 
+                 type="checkbox" 
+                 checked={agent.humanInput}
+                 onChange={(e) => onUpdate({ humanInput: e.target.checked })}
+                 className="rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500/50"
+               />
+               <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Allow Human Input</span>
+            </label>
+
+            <button 
+              onClick={onRemove}
+              className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
+            >
+              <Trash2 className="w-3 h-3" /> Remove Agent
+            </button>
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+}
