@@ -2,9 +2,9 @@ fastapi
 uvicorn
 crewai
 crewai_tools
-langchain_core
-langchain_google_genai
-yfinance
-youtube-transcript-api
+langchain-core
+langchain-google-genai
 google-generative-ai
 sqlalchemy
+yfinance
+youtube-transcript-api

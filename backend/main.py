@@ -137,7 +137,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
                 os.environ["GOOGLE_API_KEY"] = api_key
                 
-                llm = LLM(model="gemini/gemini-1.5-flash", temperature=0.7)
+                llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.7)
 
                 # Agents
                 crew_agents = {}
