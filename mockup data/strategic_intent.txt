@@ -1,0 +1,18 @@
+
+STRATEGIC INTENT MEMO
+FROM: CEO, Vertex Dynamics
+TO: Engineering & Product Leadership
+DATE: 2025-01-15
+SUBJECT: Strategic Pivot to AI-First Customer Support (Project: "NeuralSupport")
+
+Objective:
+By Q3 2025, Vertex Dynamics must launch "NeuralSupport," a Generative AI module capable of automating 40% of our client's tier-1 support tickets.
+
+Key Requirements:
+1. Transition our core legacy Java monolith to microservices that can interface with LLMs.
+2. Build a RAG (Retrieval-Augmented Generation) pipeline using Python and LangChain.
+3. Ensure all engineers have functional literacy in AI capability (Prompt Engineering, Basic Python).
+
+Constraint:
+Hiring freeze is in effect. We must achieve this via internal mobility and upskilling.
+Target ROI: Upskilling cost must not exceed 20% of external hiring cost.

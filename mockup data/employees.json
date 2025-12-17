@@ -1,0 +1,961 @@
+[
+    {
+        "id": "EMP_001",
+        "name": "Engineer_1",
+        "role": "Senior Backend Engineer",
+        "salary": 131581,
+        "hourly_rate": 63.26,
+        "skills": {
+            "Java": 3,
+            "Oracle SQL": 3,
+            "Jenkins": 5,
+            "SOAP APIs": 5,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 1,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_002",
+        "name": "Engineer_2",
+        "role": "Product Manager",
+        "salary": 96343,
+        "hourly_rate": 46.32,
+        "skills": {
+            "Java": 4,
+            "Spring Boot": 5,
+            "Jenkins": 4,
+            "SOAP APIs": 5,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 2,
+            "Docker": 0,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_003",
+        "name": "Engineer_3",
+        "role": "Product Manager",
+        "salary": 156407,
+        "hourly_rate": 75.2,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 3,
+            "SOAP APIs": 4,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 1,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_004",
+        "name": "Engineer_4",
+        "role": "Database Administrator",
+        "salary": 108926,
+        "hourly_rate": 52.37,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 4,
+            "Oracle SQL": 3,
+            "Jenkins": 3,
+            "SOAP APIs": 3,
+            "Jira": 5,
+            "Python": 2,
+            "PyTorch": 1,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_005",
+        "name": "Engineer_5",
+        "role": "Product Manager",
+        "salary": 129269,
+        "hourly_rate": 62.15,
+        "skills": {
+            "Java": 3,
+            "Oracle SQL": 5,
+            "Jenkins": 3,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 2,
+            "React": 0,
+            "Docker": 1,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_006",
+        "name": "Engineer_6",
+        "role": "Product Manager",
+        "salary": 145210,
+        "hourly_rate": 69.81,
+        "skills": {
+            "Java": 5,
+            "Jenkins": 3,
+            "SOAP APIs": 4,
+            "Python": 1,
+            "PyTorch": 1,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_007",
+        "name": "Engineer_7",
+        "role": "Senior Backend Engineer",
+        "salary": 113120,
+        "hourly_rate": 54.38,
+        "skills": {
+            "Oracle SQL": 3,
+            "Jenkins": 4,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_008",
+        "name": "Engineer_8",
+        "role": "Frontend Developer",
+        "salary": 149383,
+        "hourly_rate": 71.82,
+        "skills": {
+            "Jenkins": 5,
+            "SOAP APIs": 3,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 2,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_009",
+        "name": "Engineer_9",
+        "role": "Frontend Developer",
+        "salary": 135390,
+        "hourly_rate": 65.09,
+        "skills": {
+            "Java": 5,
+            "Jenkins": 4,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 2,
+            "LangChain": 2,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_010",
+        "name": "Engineer_10",
+        "role": "Database Administrator",
+        "salary": 158692,
+        "hourly_rate": 76.29,
+        "skills": {
+            "Jenkins": 5,
+            "Jira": 4,
+            "Python": 2,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 1,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_011",
+        "name": "Engineer_11",
+        "role": "Senior Backend Engineer",
+        "salary": 106136,
+        "hourly_rate": 51.03,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 4,
+            "Oracle SQL": 5,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 2,
+            "React": 2,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_012",
+        "name": "Engineer_12",
+        "role": "Senior Backend Engineer",
+        "salary": 158488,
+        "hourly_rate": 76.2,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 3,
+            "Oracle SQL": 4,
+            "Jenkins": 3,
+            "SOAP APIs": 5,
+            "Jira": 3,
+            "Python": 1,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_013",
+        "name": "Engineer_13",
+        "role": "Senior Backend Engineer",
+        "salary": 107103,
+        "hourly_rate": 51.49,
+        "skills": {
+            "Java": 5,
+            "Jenkins": 4,
+            "SOAP APIs": 4,
+            "Jira": 4,
+            "Python": 1,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 1,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_014",
+        "name": "Engineer_14",
+        "role": "Frontend Developer",
+        "salary": 106057,
+        "hourly_rate": 50.99,
+        "skills": {
+            "Java": 4,
+            "Oracle SQL": 3,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 2,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_015",
+        "name": "Engineer_15",
+        "role": "Product Manager",
+        "salary": 154630,
+        "hourly_rate": 74.34,
+        "skills": {
+            "Java": 3,
+            "Jenkins": 3,
+            "SOAP APIs": 3,
+            "Jira": 3,
+            "Python": 2,
+            "PyTorch": 1,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_016",
+        "name": "Engineer_16",
+        "role": "Senior Backend Engineer",
+        "salary": 149064,
+        "hourly_rate": 71.67,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 4,
+            "Jenkins": 5,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 1
+        }
+    },
+    {
+        "id": "EMP_017",
+        "name": "Engineer_17",
+        "role": "Database Administrator",
+        "salary": 99902,
+        "hourly_rate": 48.03,
+        "skills": {
+            "Spring Boot": 5,
+            "Oracle SQL": 4,
+            "SOAP APIs": 5,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 2,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_018",
+        "name": "Engineer_18",
+        "role": "Database Administrator",
+        "salary": 122589,
+        "hourly_rate": 58.94,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 3,
+            "Oracle SQL": 5,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 2,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_019",
+        "name": "Engineer_19",
+        "role": "QA Engineer",
+        "salary": 120497,
+        "hourly_rate": 57.93,
+        "skills": {
+            "Spring Boot": 4,
+            "Oracle SQL": 4,
+            "Jenkins": 4,
+            "SOAP APIs": 5,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_020",
+        "name": "Engineer_20",
+        "role": "Senior Backend Engineer",
+        "salary": 152109,
+        "hourly_rate": 73.13,
+        "skills": {
+            "Java": 3,
+            "Oracle SQL": 3,
+            "SOAP APIs": 5,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 1,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 1
+        }
+    },
+    {
+        "id": "EMP_021",
+        "name": "Engineer_21",
+        "role": "Product Manager",
+        "salary": 158581,
+        "hourly_rate": 76.24,
+        "skills": {
+            "Java": 4,
+            "Oracle SQL": 5,
+            "Jenkins": 5,
+            "Jira": 3,
+            "Python": 2,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 2,
+            "Docker": 0,
+            "FastAPI": 1
+        }
+    },
+    {
+        "id": "EMP_022",
+        "name": "Engineer_22",
+        "role": "Product Manager",
+        "salary": 105096,
+        "hourly_rate": 50.53,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 5,
+            "Oracle SQL": 4,
+            "SOAP APIs": 4,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 1,
+            "Docker": 0,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_023",
+        "name": "Engineer_23",
+        "role": "Frontend Developer",
+        "salary": 110793,
+        "hourly_rate": 53.27,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 5,
+            "Jenkins": 3,
+            "SOAP APIs": 4,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_024",
+        "name": "Engineer_24",
+        "role": "Product Manager",
+        "salary": 148502,
+        "hourly_rate": 71.4,
+        "skills": {
+            "Java": 4,
+            "Spring Boot": 4,
+            "Oracle SQL": 5,
+            "Jenkins": 5,
+            "Jira": 4,
+            "Python": 1,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_025",
+        "name": "Engineer_25",
+        "role": "Product Manager",
+        "salary": 138408,
+        "hourly_rate": 66.54,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 4,
+            "Oracle SQL": 5,
+            "Jenkins": 3,
+            "SOAP APIs": 3,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 0,
+            "Docker": 2,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_026",
+        "name": "Engineer_26",
+        "role": "Frontend Developer",
+        "salary": 90469,
+        "hourly_rate": 43.49,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 5,
+            "Oracle SQL": 4,
+            "Python": 2,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_027",
+        "name": "Engineer_27",
+        "role": "Senior Backend Engineer",
+        "salary": 116105,
+        "hourly_rate": 55.82,
+        "skills": {
+            "Java": 3,
+            "SOAP APIs": 3,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 0,
+            "Docker": 2,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_028",
+        "name": "Engineer_28",
+        "role": "Senior Backend Engineer",
+        "salary": 116161,
+        "hourly_rate": 55.85,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 4,
+            "Oracle SQL": 4,
+            "Jenkins": 4,
+            "Python": 1,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 1,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_029",
+        "name": "Engineer_29",
+        "role": "Database Administrator",
+        "salary": 99581,
+        "hourly_rate": 47.88,
+        "skills": {
+            "Spring Boot": 3,
+            "Oracle SQL": 3,
+            "Jenkins": 3,
+            "SOAP APIs": 5,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 2,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_030",
+        "name": "Engineer_30",
+        "role": "QA Engineer",
+        "salary": 149638,
+        "hourly_rate": 71.94,
+        "skills": {
+            "Java": 4,
+            "Spring Boot": 4,
+            "Oracle SQL": 3,
+            "Jenkins": 4,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 2,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_031",
+        "name": "Engineer_31",
+        "role": "Frontend Developer",
+        "salary": 112933,
+        "hourly_rate": 54.29,
+        "skills": {
+            "Java": 4,
+            "Spring Boot": 5,
+            "Oracle SQL": 3,
+            "Jenkins": 3,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_032",
+        "name": "Engineer_32",
+        "role": "Product Manager",
+        "salary": 145352,
+        "hourly_rate": 69.88,
+        "skills": {
+            "Java": 4,
+            "Spring Boot": 3,
+            "Oracle SQL": 4,
+            "Jenkins": 3,
+            "SOAP APIs": 5,
+            "Jira": 3,
+            "Python": 1,
+            "PyTorch": 1,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_033",
+        "name": "Engineer_33",
+        "role": "Senior Backend Engineer",
+        "salary": 111738,
+        "hourly_rate": 53.72,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 4,
+            "Oracle SQL": 5,
+            "Jenkins": 5,
+            "SOAP APIs": 5,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 2,
+            "Docker": 0,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_034",
+        "name": "Engineer_34",
+        "role": "QA Engineer",
+        "salary": 119638,
+        "hourly_rate": 57.52,
+        "skills": {
+            "Spring Boot": 4,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 1,
+            "LangChain": 1,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 1
+        }
+    },
+    {
+        "id": "EMP_035",
+        "name": "Engineer_35",
+        "role": "Database Administrator",
+        "salary": 137147,
+        "hourly_rate": 65.94,
+        "skills": {
+            "Spring Boot": 5,
+            "Oracle SQL": 3,
+            "Jenkins": 5,
+            "SOAP APIs": 4,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 2,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_036",
+        "name": "Engineer_36",
+        "role": "Senior Backend Engineer",
+        "salary": 133239,
+        "hourly_rate": 64.06,
+        "skills": {
+            "Spring Boot": 4,
+            "Jenkins": 4,
+            "SOAP APIs": 3,
+            "Python": 2,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 1,
+            "Docker": 0,
+            "FastAPI": 2
+        }
+    },
+    {
+        "id": "EMP_037",
+        "name": "Engineer_37",
+        "role": "Senior Backend Engineer",
+        "salary": 94140,
+        "hourly_rate": 45.26,
+        "skills": {
+            "Oracle SQL": 5,
+            "Jenkins": 4,
+            "SOAP APIs": 4,
+            "Jira": 5,
+            "Python": 2,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 2,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_038",
+        "name": "Engineer_38",
+        "role": "Product Manager",
+        "salary": 137811,
+        "hourly_rate": 66.26,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 3,
+            "Oracle SQL": 5,
+            "Jenkins": 3,
+            "SOAP APIs": 4,
+            "Python": 0,
+            "PyTorch": 1,
+            "LangChain": 2,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_039",
+        "name": "Engineer_39",
+        "role": "Frontend Developer",
+        "salary": 102508,
+        "hourly_rate": 49.28,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 3,
+            "Oracle SQL": 3,
+            "Jenkins": 3,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_040",
+        "name": "Engineer_40",
+        "role": "Product Manager",
+        "salary": 145221,
+        "hourly_rate": 69.82,
+        "skills": {
+            "Oracle SQL": 4,
+            "Jenkins": 4,
+            "SOAP APIs": 5,
+            "Python": 1,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_041",
+        "name": "Engineer_41",
+        "role": "Database Administrator",
+        "salary": 109179,
+        "hourly_rate": 52.49,
+        "skills": {
+            "Java": 5,
+            "Spring Boot": 3,
+            "Oracle SQL": 3,
+            "Jenkins": 5,
+            "Python": 0,
+            "PyTorch": 2,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_042",
+        "name": "Engineer_42",
+        "role": "Senior Backend Engineer",
+        "salary": 116817,
+        "hourly_rate": 56.16,
+        "skills": {
+            "Spring Boot": 3,
+            "Oracle SQL": 5,
+            "SOAP APIs": 5,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_043",
+        "name": "Engineer_43",
+        "role": "Product Manager",
+        "salary": 95106,
+        "hourly_rate": 45.72,
+        "skills": {
+            "Oracle SQL": 5,
+            "Jenkins": 5,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 1,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_044",
+        "name": "Engineer_44",
+        "role": "QA Engineer",
+        "salary": 95909,
+        "hourly_rate": 46.11,
+        "skills": {
+            "Java": 3,
+            "Spring Boot": 4,
+            "Oracle SQL": 3,
+            "Jenkins": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_045",
+        "name": "Engineer_45",
+        "role": "Database Administrator",
+        "salary": 111015,
+        "hourly_rate": 53.37,
+        "skills": {
+            "Java": 4,
+            "Oracle SQL": 3,
+            "Jenkins": 5,
+            "SOAP APIs": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_046",
+        "name": "Engineer_46",
+        "role": "Database Administrator",
+        "salary": 135958,
+        "hourly_rate": 65.36,
+        "skills": {
+            "Oracle SQL": 5,
+            "Jenkins": 4,
+            "Jira": 3,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_047",
+        "name": "Engineer_47",
+        "role": "Senior Backend Engineer",
+        "salary": 148127,
+        "hourly_rate": 71.21,
+        "skills": {
+            "Java": 3,
+            "Oracle SQL": 4,
+            "Jenkins": 5,
+            "SOAP APIs": 5,
+            "Jira": 4,
+            "Python": 2,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 1
+        }
+    },
+    {
+        "id": "EMP_048",
+        "name": "Engineer_48",
+        "role": "Senior Backend Engineer",
+        "salary": 153915,
+        "hourly_rate": 74.0,
+        "skills": {
+            "Spring Boot": 5,
+            "Oracle SQL": 4,
+            "Jenkins": 4,
+            "SOAP APIs": 3,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_049",
+        "name": "Engineer_49",
+        "role": "Product Manager",
+        "salary": 159551,
+        "hourly_rate": 76.71,
+        "skills": {
+            "Spring Boot": 4,
+            "Jira": 5,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    },
+    {
+        "id": "EMP_050",
+        "name": "Engineer_50",
+        "role": "Senior Backend Engineer",
+        "salary": 130180,
+        "hourly_rate": 62.59,
+        "skills": {
+            "Java": 4,
+            "Spring Boot": 3,
+            "Oracle SQL": 3,
+            "Jenkins": 3,
+            "SOAP APIs": 3,
+            "Jira": 4,
+            "Python": 0,
+            "PyTorch": 0,
+            "LangChain": 0,
+            "React": 0,
+            "Docker": 0,
+            "FastAPI": 0
+        }
+    }
+]

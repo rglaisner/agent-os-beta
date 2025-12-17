@@ -1,0 +1,9 @@
+Skill,Category,Strategic_Value,Training_Cost_Per_Hour
+Java,Backend,4,50
+Spring Boot,Backend,5,50
+Oracle SQL,Database,3,40
+Python,AI/ML,10,150
+PyTorch,AI/ML,10,200
+LangChain,AI/ML,9,180
+React,Frontend,6,80
+Strategic Thinking,Leadership,8,120

@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+crewai
+crewai_tools
+langchain_core
+langchain_google_genai
+yfinance
+youtube-transcript-api
