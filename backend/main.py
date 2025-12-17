@@ -19,8 +19,8 @@ from crewai.tools import BaseTool
 from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool
 from langchain_experimental.tools import PythonREPLTool
 
-# Google Generative AI (Direct import for simple planning tasks)
-import google.generativeai as genai
+# --- FIXED IMPORT: Use LangChain instead of raw Google SDK ---
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 app = FastAPI()
 
@@ -47,23 +47,20 @@ def get_db():
     finally:
         db.close()
 
-# --- HELPER: CONFIGURE GEMINI ---
-def configure_genai():
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        print("ERROR: GEMINI_API_KEY not found.")
-        return None
-    genai.configure(api_key=api_key)
-    return True
-
-# --- NEW ENDPOINT: GENERATE PLAN ---
+# --- NEW ENDPOINT: GENERATE PLAN (Fixed to use LangChain) ---
 @app.post("/api/plan")
 async def generate_plan(request: PlanRequest):
-    """Generates a mission plan using the Backend's API Key"""
-    if not configure_genai():
-        raise HTTPException(status_code=500, detail="Server missing API Key")
+    """Generates a mission plan using the Backend's API Key via LangChain"""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Server missing GEMINI_API_KEY")
     
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Use the existing installed library
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash",
+        google_api_key=api_key,
+        temperature=0.7
+    )
     
     # Construct the prompt
     agent_descriptions = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
@@ -79,9 +76,11 @@ async def generate_plan(request: PlanRequest):
     """
     
     try:
-        response = model.generate_content(prompt)
+        # Invoke the model
+        response = llm.invoke(prompt)
+        
         # Clean the response to ensure it's pure JSON
-        text = response.text.replace("```json", "").replace("```", "").strip()
+        text = response.content.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
         print(f"Planning Error: {e}")
@@ -170,8 +169,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     context_file = f"uploads/ctx_{int(time.time())}.txt"
                     with open(context_file, "w") as f: f.write(payload["context"])
 
-                configure_genai()
-                llm = LLM(model="gemini/gemini-1.5-flash", temperature=0.7)
+                api_key = os.getenv("GEMINI_API_KEY")
+                if not api_key:
+                    await websocket.send_json({"type": "ERROR", "content": "Missing GEMINI_API_KEY"})
+                    continue
+                os.environ["GOOGLE_API_KEY"] = api_key
+                
+                # Use the model you preferred
+                llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.7)
                 
                 # Agents & Tasks
                 agents_map = {}
