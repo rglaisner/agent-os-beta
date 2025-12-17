@@ -8,3 +8,4 @@ google-generative-ai
 sqlalchemy
 yfinance
 youtube-transcript-api
+langchain-experimental 
