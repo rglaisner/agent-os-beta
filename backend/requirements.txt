@@ -4,7 +4,6 @@ crewai
 crewai_tools
 langchain-core
 langchain-google-genai
-google-generative-ai
 sqlalchemy
 yfinance
 youtube-transcript-api
