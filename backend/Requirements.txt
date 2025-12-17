@@ -6,3 +6,5 @@ langchain_core
 langchain_google_genai
 yfinance
 youtube-transcript-api
+google-generative-ai
+sqlalchemy
