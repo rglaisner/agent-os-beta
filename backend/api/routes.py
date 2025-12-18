@@ -105,7 +105,11 @@ async def generate_plan(request: PlanRequest):
     Available Agents:
     {agent_desc}
     {process_instruction}
-    Return ONLY a JSON array: [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+    Return ONLY a JSON object with this structure:
+    {{
+      "overview": "Short text demonstrating comprehension of the goal, tenets, and strategy.",
+      "steps": [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+    }}
     """
     try:
         res = llm.invoke(prompt)
