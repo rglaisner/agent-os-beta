@@ -13,6 +13,7 @@ class PlanStep(BaseModel):
     id: str
     agentId: str
     instruction: str
+    trainingIterations: Optional[int] = 0
 
 class PlanRequest(BaseModel):
     goal: str

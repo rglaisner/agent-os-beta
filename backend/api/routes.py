@@ -108,8 +108,10 @@ async def generate_plan(request: PlanRequest):
     {process_instruction}
 
     If the available agents are insufficient to complete the goal, you MUST suggest new agents.
+    Assess if agents need training iterations (especially for low-context tasks). Default is 0.
+
     Create a JSON object with two keys:
-    1. "plan": An array of steps [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+    1. "plan": An array of steps [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details", "trainingIterations": 0 }}]
     2. "newAgents": An array of new agents needed [{{ "id": "unique-id", "role": "Role Name", "goal": "Agent Goal", "backstory": "Agent Backstory", "toolIds": ["tool-id", ...], "humanInput": false }}]
 
     Ensure new agents have unique IDs (e.g., 'agent-specialist').

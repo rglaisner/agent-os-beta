@@ -12,6 +12,7 @@ interface PlanStep {
   id: string;
   agentId: string;
   instruction: string;
+  trainingIterations?: number;
 }
 
 interface MissionControlProps {
@@ -223,8 +224,25 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
               <div key={idx} className="flex gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors group">
                 <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-200 shadow-sm shrink-0 transition-colors">{idx + 1}</div>
                 <div className="flex-1">
-                  <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">
-                    {agents.find(a => a.id === step.agentId)?.role || 'Agent'}
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                        {agents.find(a => a.id === step.agentId)?.role || 'Agent'}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-500 font-medium">Train:</span>
+                        <input
+                            type="number"
+                            min="0"
+                            value={step.trainingIterations || 0}
+                            onChange={(e) => {
+                                const newPlan = [...plan];
+                                newPlan[idx].trainingIterations = parseInt(e.target.value) || 0;
+                                setPlan(newPlan);
+                            }}
+                            className="w-12 px-1 py-0.5 border border-slate-300 rounded text-center bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <span className="text-slate-400">iters</span>
+                    </div>
                   </div>
                   <p className="text-sm text-slate-700 leading-relaxed">{step.instruction}</p>
                 </div>
