@@ -71,7 +71,7 @@ async def generate_plan(request: PlanRequest):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key: raise HTTPException(500, "Missing API Key")
     
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.7)
+    llm = ChatGoogleGenerativeAI(model="gemini/gemini-2.5-flash", google_api_key=api_key, temperature=0.7)
     
     agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
     prompt = f"""
