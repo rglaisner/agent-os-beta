@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+tools.db
+chroma_db/
+uploads/
+static/plots/
+__pycache__/
+*.pyc

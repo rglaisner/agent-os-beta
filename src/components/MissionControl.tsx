@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X } from 'lucide-react';
+import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -15,7 +15,7 @@ interface PlanStep {
 
 interface MissionControlProps {
   agents: Agent[];
-  onLaunch: (plan: PlanStep[], files: string[]) => void;
+  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
   isRunning: boolean;
 }
 
@@ -26,6 +26,7 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL 
     ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
@@ -63,7 +64,7 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
       const response = await fetch(`${backendUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, agents })
+        body: JSON.stringify({ goal, agents, process_type: processType })
       });
 
       if (!response.ok) throw new Error('Backend failed');
@@ -101,37 +102,62 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
         {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
       </div>
 
-      {/* FILE UPLOAD */}
-      <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-         <div className="flex justify-between items-center mb-2">
-             <label className="text-sm font-medium text-slate-400 flex items-center gap-2">
-                <Paperclip className="w-4 h-4" /> Attachments (PDF, Excel, CSV)
-             </label>
-             {isUploading && <span className="text-xs text-indigo-400 animate-pulse">Uploading...</span>}
-         </div>
-         
-         <div className="flex flex-wrap gap-2 mb-3">
-             {uploadedFiles.map((f, i) => (
-                 <div key={i} className="bg-slate-800 px-3 py-1 rounded-full text-xs flex items-center gap-2 border border-slate-700">
-                     <FileText className="w-3 h-3 text-indigo-400" />
-                     {f.name}
-                     <button onClick={() => setUploadedFiles(uploadedFiles.filter((_, idx) => idx !== i))}>
-                        <X className="w-3 h-3 hover:text-red-400" />
-                     </button>
-                 </div>
-             ))}
-         </div>
+      <div className="flex gap-4">
+        {/* FILE UPLOAD */}
+        <div className="flex-1 bg-slate-950 p-4 rounded-lg border border-slate-800">
+           <div className="flex justify-between items-center mb-2">
+               <label className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                  <Paperclip className="w-4 h-4" /> Attachments
+               </label>
+               {isUploading && <span className="text-xs text-indigo-400 animate-pulse">Uploading...</span>}
+           </div>
 
-         <div className="relative">
-             <input 
-                type="file" 
-                onChange={handleFileUpload} 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-             />
-             <div className="w-full bg-slate-900 border border-dashed border-slate-700 rounded-md py-4 text-center text-slate-500 text-xs hover:bg-slate-800 transition-colors">
-                 Click to upload a document (Max 50MB)
-             </div>
-         </div>
+           <div className="flex flex-wrap gap-2 mb-3">
+               {uploadedFiles.map((f, i) => (
+                   <div key={i} className="bg-slate-800 px-3 py-1 rounded-full text-xs flex items-center gap-2 border border-slate-700">
+                       <FileText className="w-3 h-3 text-indigo-400" />
+                       {f.name}
+                       <button onClick={() => setUploadedFiles(uploadedFiles.filter((_, idx) => idx !== i))}>
+                          <X className="w-3 h-3 hover:text-red-400" />
+                       </button>
+                   </div>
+               ))}
+           </div>
+
+           <div className="relative">
+               <input
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+               />
+               <div className="w-full bg-slate-900 border border-dashed border-slate-700 rounded-md py-4 text-center text-slate-500 text-xs hover:bg-slate-800 transition-colors">
+                   Click to upload (PDF, Excel, CSV)
+               </div>
+           </div>
+        </div>
+
+        {/* PROCESS TYPE */}
+        <div className="w-1/3 bg-slate-950 p-4 rounded-lg border border-slate-800 flex flex-col">
+            <label className="text-sm font-medium text-slate-400 mb-3 flex items-center gap-2">
+               <Users className="w-4 h-4" /> Team Structure
+            </label>
+            <div className="flex flex-1 gap-2 bg-slate-900 p-1 rounded">
+                <button
+                    onClick={() => setProcessType('sequential')}
+                    className={`flex-1 rounded flex flex-col items-center justify-center gap-1 text-xs transition-colors ${processType === 'sequential' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    <User className="w-4 h-4" />
+                    Sequential
+                </button>
+                <button
+                    onClick={() => setProcessType('hierarchical')}
+                    className={`flex-1 rounded flex flex-col items-center justify-center gap-1 text-xs transition-colors ${processType === 'hierarchical' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                    <Users className="w-4 h-4" />
+                    Manager
+                </button>
+            </div>
+        </div>
       </div>
 
       {/* PLAN */}
@@ -140,7 +166,7 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
           <h3 className="font-bold text-slate-300 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-400" /> Plan</h3>
           {plan.length > 0 && (
             <button
-              onClick={() => onLaunch(plan, uploadedFiles.map(f => f.path))}
+              onClick={() => onLaunch(plan, uploadedFiles.map(f => f.path), processType)}
               disabled={isRunning}
               className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-bold shadow-lg flex items-center gap-2 disabled:opacity-50"
             >

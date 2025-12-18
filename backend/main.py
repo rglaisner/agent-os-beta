@@ -1,31 +1,24 @@
-import json
 import os
 import asyncio
-import time
-import shutil
-from typing import List, Dict, Any
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-import yfinance as yf
+from fastapi.staticfiles import StaticFiles
 
-# Database Imports
-from database import init_db, create_mission, add_event, update_mission_result, SessionLocal, Mission, MissionEvent
+# Imports
+from database import init_db, create_mission, update_mission_result
+from core.agents import create_agents, create_tasks
+from api.routes import router as api_router
+from tools.base_tools import human_input_store
 
-# AI Imports
-from crewai import Agent, Task, Crew, Process, LLM
-from langchain_core.callbacks import BaseCallbackHandler
-from crewai.tools import BaseTool
-from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool, PDFSearchTool
-from langchain_experimental.tools import PythonREPLTool
-from langchain_google_genai import ChatGoogleGenerativeAI
+# CrewAI
+from crewai import Crew, Process, LLM
 
 app = FastAPI()
 
-# Initialize DB & Uploads Folder
+# Initialize DB & Uploads
 init_db()
 os.makedirs("uploads", exist_ok=True)
+os.makedirs("static/plots", exist_ok=True) # Ensure plot directory exists
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,11 +27,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- MODELS ---
-class PlanRequest(BaseModel):
-    goal: str
-    agents: List[Any]
+# Mount Static Files (Uploads & Plots)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Include API Routes
+app.include_router(api_router, prefix="/api")
+
+# WebSocket Endpoint
 # --- DEPENDENCIES ---
 def get_db():
     db = SessionLocal()
@@ -163,7 +159,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 payload = data["payload"]
                 mission_id = create_mission(payload['plan'][0]['instruction'][:50])
                 
-                # Setup Environment
+                # Setup Env
                 api_key = os.getenv("GEMINI_API_KEY")
                 if not api_key:
                     await websocket.send_json({"type": "ERROR", "content": "Missing API Key"})
@@ -192,29 +188,43 @@ async def websocket_endpoint(websocket: WebSocket):
                     agent = Agent(role=a_data['role'], goal=a_data['goal'], backstory=backstory, tools=tools, llm=llm, callbacks=[WebSocketHandler(websocket, mission_id)])
                     agents_map[a_data['id']] = agent
                 
-                # Create Tasks
-                for step in payload['plan']:
-                    agent = agents_map.get(step['agentId']) or list(agents_map.values())[0]
-                    desc = step['instruction']
-                    if uploaded_files:
-                        desc += f" (Refer to attached files: {uploaded_files})"
-                    tasks.append(Task(description=desc, expected_output="Report", agent=agent))
-
-                # Kickoff
-                await websocket.send_json({"type": "SYSTEM", "content": "Mission Started"})
                 try:
-                    crew = Crew(agents=list(agents_map.values()), tasks=tasks, process=Process.sequential)
+                    # Create Agents & Tasks
+                    uploaded_files = payload.get("files", [])
+                    agents_map = create_agents(payload['agents'], uploaded_files, websocket, mission_id)
+                    tasks = create_tasks(payload['plan'], agents_map, uploaded_files)
+
+                    # Process Type logic
+                    process_type = payload.get("processType", "sequential")
+
+                    await websocket.send_json({"type": "SYSTEM", "content": f"Mission Started ({process_type.upper()})"})
+
+                    # Crew Configuration
+                    crew_args = {
+                        "agents": list(agents_map.values()),
+                        "tasks": tasks,
+                        "process": Process.hierarchical if process_type == "hierarchical" else Process.sequential,
+                        "verbose": True
+                    }
+
+                    if process_type == "hierarchical":
+                        # Manager LLM - explicit model name
+                        crew_args["manager_llm"] = LLM(model="gemini/gemini-1.5-pro", temperature=0.7)
+
+                    crew = Crew(**crew_args)
+
                     result = await asyncio.get_event_loop().run_in_executor(None, crew.kickoff)
                     update_mission_result(mission_id, str(result))
                     await websocket.send_json({"type": "OUTPUT", "content": str(result), "agentName": "System"})
+
                 except Exception as e:
                     update_mission_result(mission_id, str(e), status="FAILED")
-                    await websocket.send_json({"type": "ERROR", "content": str(e)})
+                    await websocket.send_json({"type": "ERROR", "content": f"Error: {str(e)}"})
 
             elif data.get("action") == "HUMAN_RESPONSE":
                 human_input_store[data["requestId"]] = data["content"]
-    except:
-        print("WS Disconnect")
+    except Exception as e:
+        print(f"WS Error: {e}")
 
 if __name__ == "__main__":
     import uvicorn
