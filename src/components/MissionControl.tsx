@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User } from 'lucide-react';
+import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -17,9 +17,10 @@ interface MissionControlProps {
   agents: Agent[];
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
   isRunning: boolean;
+  onAddAgents?: (agents: Agent[]) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [planOverview, setPlanOverview] = useState<string>('');
@@ -28,6 +29,7 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
+  const [reasoning, setReasoning] = useState<string | null>(null);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL 
     ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
@@ -60,25 +62,25 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
     if (!goal) return;
     setIsPlanning(true);
     setError(null);
+    setReasoning(null);
 
     try {
+      // Don't send process_type initially, let the backend suggest it
       const response = await fetch(`${backendUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, agents, process_type: processType })
+        body: JSON.stringify({ goal, agents })
       });
 
       if (!response.ok) throw new Error('Backend failed');
       const data = await response.json();
 
-      // Handle legacy array response just in case, or new object structure
-      if (Array.isArray(data)) {
-         setPlan(data);
-         setPlanOverview('');
-      } else {
-         setPlan(data.steps || []);
-         setPlanOverview(data.overview || '');
+      if (data.newAgents && data.newAgents.length > 0 && onAddAgents) {
+          onAddAgents(data.newAgents);
+          // Show a small ephemeral notification? For now we just add them.
       }
+
+      setPlan(data.plan || data); // Fallback for old format
     } catch (err) {
       console.error(err);
       setError("Planning failed. Is the backend running?");
@@ -91,7 +93,11 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
     <div className="flex flex-col gap-6 h-full">
       {/* GOAL */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <label className="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">Mission Goal</label>
+        <label className="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center gap-2 w-max group relative cursor-help">
+            Mission Goal
+            <Info className="w-4 h-4 text-slate-400" />
+            <Tooltip text="Describe what you want the agents to accomplish." />
+        </label>
         <div className="flex flex-col gap-4">
           <textarea
             value={goal}
@@ -152,23 +158,26 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
 
         {/* PROCESS TYPE */}
         <div className="w-1/3 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-            <label className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
+            <label className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider w-max group relative cursor-help">
                <Users className="w-4 h-4" /> Team Structure
+               <Tooltip text="Choose how agents collaborate: linear steps or manager-led delegation." />
             </label>
             <div className="flex flex-1 gap-2 bg-slate-100 p-1.5 rounded-lg border border-slate-200">
                 <button
                     onClick={() => setProcessType('sequential')}
-                    className={`flex-1 rounded-md flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all ${processType === 'sequential' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                    className={`group relative flex-1 rounded-md flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all ${processType === 'sequential' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                 >
                     <User className="w-4 h-4" />
                     Sequential
+                    <Tooltip text="Agents execute tasks one by one in a fixed order." />
                 </button>
                 <button
                     onClick={() => setProcessType('hierarchical')}
-                    className={`flex-1 rounded-md flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all ${processType === 'hierarchical' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                    className={`group relative flex-1 rounded-md flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all ${processType === 'hierarchical' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                 >
                     <Users className="w-4 h-4" />
-                    Manager
+                    Hierarchy
+                    <Tooltip text="A Manager Agent oversees others and delegates tasks dynamically." />
                 </button>
             </div>
         </div>
@@ -189,6 +198,15 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
             </button>
           )}
         </div>
+
+        {reasoning && (
+             <div className="mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-sm text-indigo-800 flex gap-2 items-start">
+                 <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
+                 <div>
+                     <span className="font-bold">Suggested Strategy:</span> {reasoning}
+                 </div>
+             </div>
+        )}
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-2">
             {plan.length === 0 && <div className="h-full flex flex-col items-center justify-center text-slate-400 italic text-sm border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">Plan will appear here after generation</div>}

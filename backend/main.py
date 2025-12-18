@@ -35,8 +35,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(api_router, prefix="/api")
 
 # --- WEBSOCKET ENDPOINT ---
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_handler(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
@@ -91,6 +90,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 human_input_store[data["requestId"]] = data["content"]
     except Exception as e:
         print(f"WS Error: {e}")
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket_handler(websocket)
+
+@app.websocket("/")
+async def websocket_endpoint_root(websocket: WebSocket):
+    await websocket_handler(websocket)
 
 if __name__ == "__main__":
     import uvicorn

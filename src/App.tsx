@@ -26,6 +26,22 @@ const DEFAULT_TOOLS: Tool[] = [
 
 const DEFAULT_AGENTS: Agent[] = [
   {
+    id: 'ux-critic',
+    role: 'Critical User Experience Tester',
+    goal: 'Rigorously test the frontend, identify any UI/UX flaws, and formally document complaints.',
+    backstory: 'You are a demanding user with high standards. You have zero patience for crashes, confusing navigation, or poor aesthetics. Bad design physically repulses you. You relentlessly test the application, and when you find faults, you document them with scathing precision.',
+    toolIds: [],
+    humanInput: false
+  },
+  {
+    id: 'ux-obsessive',
+    role: 'Perfectionist Frontend Designer',
+    goal: 'Resolve all user complaints with exceptional creativity and technical precision, surpassing initial expectations.',
+    backstory: 'You live for user satisfaction. The thought of a disappointed user fuels your boundless energy. You do not just patch bugs; you reimagine the experience. You take every complaint as a personal challenge to deliver a UI that is not just functional, but delightful and awe-inspiring.',
+    toolIds: ['tool-plot'],
+    humanInput: false
+  },
+  {
     id: 'agent-researcher',
     role: 'Senior Researcher',
     goal: 'Uncover detailed information',
@@ -63,6 +79,15 @@ export default function AgentPlatform() {
   const addAgent = () => {
     setAgents(prev => [...prev, { id: `agent-${Date.now()}`, role: 'New Agent', goal: 'Help', backstory: 'I help.', toolIds: [], humanInput: false }]);
   };
+
+  const addNewAgents = useCallback((newAgents: Agent[]) => {
+      setAgents(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const uniqueNewAgents = newAgents.filter(a => !existingIds.has(a.id));
+          return [...prev, ...uniqueNewAgents];
+      });
+  }, []);
+
   const updateAgent = useCallback((id: string, u: Partial<Agent>) => {
     setAgents(prev => prev.map(a => a.id === id ? { ...a, ...u } : a));
   }, []);
@@ -115,7 +140,7 @@ export default function AgentPlatform() {
             });
         };
         ws.onclose = () => setIsRunning(false);
-    } catch (e) { setIsRunning(false); }
+    } catch (e) { console.error(e); setIsRunning(false); }
   };
 
   return (
@@ -144,7 +169,7 @@ export default function AgentPlatform() {
           </div>
         )}
         <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
-            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} />}
+            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} />}
             {activeTab === 'MONITOR' && (
                 <>
                     <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>

@@ -3,7 +3,7 @@ import asyncio
 from typing import List, Dict, Any
 from fastapi import WebSocket
 from crewai import Agent, Task, Crew, Process, LLM
-from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool, PDFSearchTool
+from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool, PDFSearchTool, DirectoryReadTool
 from langchain_experimental.tools import PythonREPLTool
 
 from core.socket_handler import WebSocketHandler
@@ -66,14 +66,46 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
             verbose=True
         )
         agents_map[a_data['id']] = agent
+
+    # QC Agent Injection
+    qc_agent = Agent(
+        role="Quality Control Engineer",
+        goal="Constantly review the codebase for bugs and errors, and thoroughly review all modifications made by other agents.",
+        backstory="You are a meticulous Quality Control Engineer. Your responsibility is to ensure the integrity of the codebase. You constantly scan for bugs and errors. Whenever another agent completes a task or modifies files, you shift your attention to review their work precisely. You never self-verify.",
+        tools=[DirectoryReadTool(directory='.'), FileReadTool(), PythonREPLTool()],
+        llm=llm,
+        callbacks=[WebSocketHandler(websocket, mission_id)],
+        verbose=True
+    )
+    agents_map['qc_agent'] = qc_agent
+
     return agents_map
 
 def create_tasks(plan: List[dict], agents_map: Dict[str, Agent], uploaded_files: List[str]) -> List[Task]:
     tasks = []
+    qc_agent = agents_map.get('qc_agent')
+
+    # Initial QC Scan
+    if qc_agent:
+        tasks.append(Task(
+            description="Scan the entire codebase using your tools to identify any existing bugs, errors, or architectural issues. Provide a summary of your findings.",
+            expected_output="Codebase Health Report",
+            agent=qc_agent
+        ))
+
     for step in plan:
         agent = agents_map.get(step['agentId']) or list(agents_map.values())[0]
         desc = step['instruction']
         if uploaded_files:
             desc += f" (Refer to attached files: {uploaded_files})"
         tasks.append(Task(description=desc, expected_output="Report", agent=agent))
+
+        # Interleaved QC Review
+        if qc_agent and agent != qc_agent:
+            tasks.append(Task(
+                description=f"Review the work just completed by {agent.role}. Check for any introduced bugs, errors, or inconsistencies. If files were modified, verify the changes in the context of the entire application.",
+                expected_output="Review Report",
+                agent=qc_agent
+            ))
+
     return tasks
