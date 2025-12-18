@@ -75,7 +75,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     if process_type == "hierarchical":
                         # Manager LLM - explicit model name
-                        crew_args["manager_llm"] = LLM(model="gemini/gemini-1.5-pro", temperature=0.7)
+                        crew_args["manager_llm"] = LLM(model="gemini/gemini-2.5-pro", temperature=0.7)
 
                     crew = Crew(**crew_args)
 
