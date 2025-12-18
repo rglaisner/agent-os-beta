@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info } from 'lucide-react';
+import Tooltip from './Tooltip';
 
 interface Agent {
   id: string;
