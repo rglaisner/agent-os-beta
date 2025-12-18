@@ -28,3 +28,4 @@ uploads/
 static/plots/
 __pycache__/
 *.pyc
+venv/

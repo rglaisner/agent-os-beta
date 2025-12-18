@@ -46,7 +46,7 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
 
 def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websocket: WebSocket, mission_id: int) -> Dict[str, Agent]:
     os.environ["OPENAI_API_KEY"] = "NA" # CrewAI fix
-    llm = LLM(model="gemini/gemini-1.5-flash", temperature=0.7)
+    llm = LLM(model="gemini/gemini-2.0-flash", temperature=0.7)
 
     agents_map = {}
     for a_data in agent_data_list:
