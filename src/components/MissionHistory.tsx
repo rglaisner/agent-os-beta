@@ -34,45 +34,45 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
       });
   }, [httpUrl]);
 
-  if (loading) return <div className="p-4 text-slate-400">Loading history...</div>;
+  if (loading) return <div className="p-4 text-slate-400 text-sm">Loading history...</div>;
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-      <div className="p-3 bg-slate-950 border-b border-slate-800 font-bold text-slate-300 flex items-center gap-2">
-        <Clock className="w-4 h-4" /> Recent Missions
+    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm h-full flex flex-col">
+      <div className="p-3 bg-slate-50 border-b border-slate-200 font-bold text-slate-700 flex items-center gap-2 text-xs uppercase tracking-wider">
+        <Clock className="w-4 h-4 text-indigo-500" /> Recent Missions
       </div>
-      <div className="max-h-64 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-white">
         {missions.map((m) => (
-          <div key={m.id} className="p-3 border-b border-slate-800 hover:bg-slate-800 transition-colors flex justify-between items-center group">
+          <div key={m.id} className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors flex justify-between items-center group">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                  m.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400' : 
-                  m.status === 'FAILED' ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${
+                  m.status === 'COMPLETED' ? 'bg-green-50 text-green-600 border-green-100' :
+                  m.status === 'FAILED' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'
                 }`}>
                   {m.status}
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   {new Date(m.created_at).toLocaleString()}
                 </span>
               </div>
-              <p className="text-sm text-slate-300 truncate font-mono" title={m.goal}>
+              <p className="text-sm text-slate-600 truncate font-medium" title={m.goal}>
                 {m.goal}
               </p>
             </div>
             
-            <div className="flex items-center gap-4 text-xs text-slate-500 ml-4">
+            <div className="flex items-center gap-4 text-xs text-slate-400 ml-4">
                <div className="flex items-center gap-1" title="Estimated Cost">
-                  <DollarSign className="w-3 h-3 text-slate-600" />
+                  <DollarSign className="w-3 h-3 text-slate-400" />
                   ${m.estimated_cost.toFixed(4)}
                </div>
                {/* Placeholder for 'View Details' - we can expand this later */}
-               <FileText className="w-4 h-4 opacity-0 group-hover:opacity-100 cursor-pointer text-indigo-400" />
+               <FileText className="w-4 h-4 opacity-0 group-hover:opacity-100 cursor-pointer text-indigo-500 hover:text-indigo-700 transition-opacity" />
             </div>
           </div>
         ))}
         {missions.length === 0 && (
-          <div className="p-8 text-center text-slate-600 text-sm">No missions recorded yet.</div>
+          <div className="p-8 text-center text-slate-400 text-sm italic">No missions recorded yet.</div>
         )}
       </div>
     </div>
