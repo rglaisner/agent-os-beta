@@ -76,7 +76,7 @@ async def generate_plan(request: PlanRequest):
     if not api_key: raise HTTPException(500, "Missing API Key")
 
     # Using 1.5-flash as 2.5 is not yet standard/available in this SDK context
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.7)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
 
     agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
 
