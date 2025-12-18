@@ -70,3 +70,15 @@ def update_mission_result(mission_id: int, result: str, tokens: int = 0, cost: f
         mission.estimated_cost = cost
         db.commit()
     db.close()
+
+def get_missions(limit: int = 100):
+    db = SessionLocal()
+    missions = db.query(Mission).order_by(Mission.created_at.desc()).limit(limit).all()
+    db.close()
+    return missions
+
+def get_mission(mission_id: int):
+    db = SessionLocal()
+    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+    db.close()
+    return mission

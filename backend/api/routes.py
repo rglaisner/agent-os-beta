@@ -7,6 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
 from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
 from pydantic import BaseModel
+from database import get_missions, get_mission
 
 router = APIRouter()
 
@@ -113,3 +114,18 @@ async def generate_plan(request: PlanRequest):
         return json.loads(text)
     except Exception as e:
         raise HTTPException(500, str(e))
+
+@router.get("/missions")
+async def list_missions():
+    try:
+        missions = get_missions()
+        return {"missions": missions}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@router.get("/missions/{mission_id}")
+async def get_mission_details(mission_id: int):
+    mission = get_mission(mission_id)
+    if not mission:
+        raise HTTPException(404, "Mission not found")
+    return mission
