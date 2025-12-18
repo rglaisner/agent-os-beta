@@ -23,6 +23,7 @@ interface MissionControlProps {
 export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
+  const [planOverview, setPlanOverview] = useState<string>('');
   const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -209,6 +210,14 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-2">
             {plan.length === 0 && <div className="h-full flex flex-col items-center justify-center text-slate-400 italic text-sm border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">Plan will appear here after generation</div>}
+
+            {planOverview && (
+                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-lg mb-4 text-sm text-slate-700 italic">
+                    <span className="font-bold text-indigo-600 not-italic block mb-1">Strategy Overview:</span>
+                    {planOverview}
+                </div>
+            )}
+
             {plan.map((step, idx) => (
               <div key={idx} className="flex gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors group">
                 <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-200 shadow-sm shrink-0 transition-colors">{idx + 1}</div>
