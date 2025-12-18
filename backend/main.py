@@ -2,8 +2,9 @@ import json
 import os
 import asyncio
 import time
+import shutil
 from typing import List, Dict, Any
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,16 +17,15 @@ from database import init_db, create_mission, add_event, update_mission_result, 
 from crewai import Agent, Task, Crew, Process, LLM
 from langchain_core.callbacks import BaseCallbackHandler
 from crewai.tools import BaseTool
-from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool
+from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool, PDFSearchTool
 from langchain_experimental.tools import PythonREPLTool
-
-# --- FIXED IMPORT: Use LangChain instead of raw Google SDK ---
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 app = FastAPI()
 
-# Initialize DB
+# Initialize DB & Uploads Folder
 init_db()
+os.makedirs("uploads", exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,44 +47,45 @@ def get_db():
     finally:
         db.close()
 
-# --- NEW ENDPOINT: GENERATE PLAN (Fixed to use LangChain) ---
+# --- NEW: FILE UPLOAD ENDPOINT ---
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Handles uploading large files (PDF, CSV, Excel)"""
+    try:
+        # Generate safe unique filename
+        file_ext = os.path.splitext(file.filename)[1]
+        safe_name = f"doc_{int(time.time())}{file_ext}"
+        file_path = os.path.join("uploads", safe_name)
+        
+        # Save to disk
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        return {"filename": file.filename, "server_path": file_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- GENERATE PLAN ---
 @app.post("/api/plan")
 async def generate_plan(request: PlanRequest):
-    """Generates a mission plan using the Backend's API Key via LangChain"""
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="Server missing GEMINI_API_KEY")
+    if not api_key: raise HTTPException(500, "Missing API Key")
     
-    # Use the existing installed library
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        google_api_key=api_key,
-        temperature=0.7
-    )
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.7)
     
-    # Construct the prompt
-    agent_descriptions = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
+    agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
     prompt = f"""
-    You are an expert project manager. Create a step-by-step execution plan for the following goal:
-    "{request.goal}"
-    
+    You are an expert project manager. Create a step-by-step execution plan for: "{request.goal}"
     Available Agents:
-    {agent_descriptions}
-    
-    Return ONLY a JSON array of steps. No markdown, no text.
-    Format: [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+    {agent_desc}
+    Return ONLY a JSON array: [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
     """
-    
     try:
-        # Invoke the model
-        response = llm.invoke(prompt)
-        
-        # Clean the response to ensure it's pure JSON
-        text = response.content.replace("```json", "").replace("```", "").strip()
+        res = llm.invoke(prompt)
+        text = res.content.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"Planning Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(500, str(e))
 
 # --- CUSTOM TOOLS ---
 class CustomYahooFinanceTool(BaseTool):
@@ -92,9 +93,8 @@ class CustomYahooFinanceTool(BaseTool):
     description: str = "Get stock price. Input: ticker (e.g. 'AAPL')."
     def _run(self, ticker: str) -> str:
         try:
-            stock = yf.Ticker(ticker.strip())
-            return f"${stock.info.get('currentPrice', 'Unknown')}"
-        except: return "Error fetching price."
+            return f"${yf.Ticker(ticker.strip()).info.get('currentPrice', 'Unknown')}"
+        except: return "Error."
 
 class WebHumanInputTool(BaseTool):
     name: str = "Ask Human"
@@ -115,82 +115,92 @@ class WebSocketHandler(BaseCallbackHandler):
         self.websocket = websocket
         self.mission_id = mission_id
     def on_llm_start(self, serialized, prompts, **kwargs):
-        add_event(self.mission_id, "Agent", "THOUGHT", "Thinking...")
         asyncio.run(self.websocket.send_json({"type": "THOUGHT", "content": "Thinking...", "agentName": "Agent"}))
     def on_tool_start(self, serialized, input_str, **kwargs):
-        add_event(self.mission_id, "Agent", "ACTION", f"Tool: {serialized.get('name')}")
-        asyncio.run(self.websocket.send_json({"type": "ACTION", "content": f"Tool: {serialized.get('name')}", "agentName": "Agent"}))
+        msg = f"Using {serialized.get('name')}"
+        add_event(self.mission_id, "Agent", "ACTION", msg)
+        asyncio.run(self.websocket.send_json({"type": "ACTION", "content": msg, "agentName": "Agent"}))
     def on_tool_end(self, output, **kwargs):
         add_event(self.mission_id, "System", "OUTPUT", output[:200])
         asyncio.run(self.websocket.send_json({"type": "OUTPUT", "content": output[:200], "agentName": "System"}))
 
-def get_tools(tool_ids, websocket, human_enabled, context_file):
+def get_tools(tool_ids, websocket, human_enabled, file_paths):
     tools = []
+    # Standard
     if "tool-search" in tool_ids: tools.append(SerperDevTool()) 
     if "tool-scrape" in tool_ids: tools.append(ScrapeWebsiteTool())
     if "tool-youtube" in tool_ids: tools.append(YoutubeChannelSearchTool())
     if "tool-finance" in tool_ids: tools.append(CustomYahooFinanceTool())
     if "tool-python" in tool_ids: tools.append(PythonREPLTool())
+    
+    # Human
     if human_enabled:
         h = WebHumanInputTool()
         h.websocket = websocket
         h.human_input_store = human_input_store
         tools.append(h)
-    if context_file: tools.append(FileReadTool(file_path=context_file))
+        
+    # File Tools - We give agents access to read the uploaded files
+    if file_paths:
+        for path in file_paths:
+            # If PDF, use PDF Search, otherwise generic File Read
+            if path.endswith(".pdf"):
+                tools.append(PDFSearchTool(pdf=path))
+            else:
+                tools.append(FileReadTool(file_path=path))
+
     return tools
 
-# --- HISTORY API ---
-@app.get("/api/missions")
-def list_missions(db: Session = Depends(get_db)):
-    return db.query(Mission).order_by(Mission.created_at.desc()).limit(20).all()
-
-@app.get("/api/missions/{mission_id}")
-def get_mission_details(mission_id: int, db: Session = Depends(get_db)):
-    m = db.query(Mission).filter(Mission.id == mission_id).first()
-    if not m: raise HTTPException(404, "Not found")
-    events = db.query(MissionEvent).filter(MissionEvent.mission_id == mission_id).all()
-    return {"mission": m, "events": events}
-
-# --- WEBSOCKET ---
+# --- WEBSOCKET ENDPOINT ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
             data = await websocket.receive_json()
+            
             if data.get("action") == "START_MISSION":
                 payload = data["payload"]
                 mission_id = create_mission(payload['plan'][0]['instruction'][:50])
                 
-                # Context File
-                context_file = None
-                if payload.get("context"):
-                    os.makedirs("uploads", exist_ok=True)
-                    context_file = f"uploads/ctx_{int(time.time())}.txt"
-                    with open(context_file, "w") as f: f.write(payload["context"])
-
+                # Setup Environment
                 api_key = os.getenv("GEMINI_API_KEY")
                 if not api_key:
-                    await websocket.send_json({"type": "ERROR", "content": "Missing GEMINI_API_KEY"})
+                    await websocket.send_json({"type": "ERROR", "content": "Missing API Key"})
                     continue
                 os.environ["GOOGLE_API_KEY"] = api_key
+                os.environ["OPENAI_API_KEY"] = "NA" # CrewAI fix
                 
-                # Use the model you preferred
-                llm = LLM(model="gemini/gemini-2.5-flash", temperature=0.7)
+                llm = LLM(model="gemini/gemini-1.5-flash", temperature=0.7)
                 
-                # Agents & Tasks
+                # Handle Files
+                # The frontend sends us a list of "server_path" strings for uploaded files
+                uploaded_files = payload.get("files", [])
+
+                # Create Agents
                 agents_map = {}
                 tasks = []
                 for a_data in payload['agents']:
-                    tools = get_tools(a_data['toolIds'], websocket, a_data.get('humanInput'), context_file)
-                    agent = Agent(role=a_data['role'], goal=a_data['goal'], backstory=a_data['backstory'], tools=tools, llm=llm, callbacks=[WebSocketHandler(websocket, mission_id)])
+                    # Pass the file paths to the tools
+                    tools = get_tools(a_data['toolIds'], websocket, a_data.get('humanInput'), uploaded_files)
+                    
+                    # Augment Backstory so agent knows about the file
+                    backstory = a_data['backstory']
+                    if uploaded_files:
+                        backstory += f"\n\nNOTICE: You have access to these files: {uploaded_files}. Use your tools to read them if needed."
+
+                    agent = Agent(role=a_data['role'], goal=a_data['goal'], backstory=backstory, tools=tools, llm=llm, callbacks=[WebSocketHandler(websocket, mission_id)])
                     agents_map[a_data['id']] = agent
                 
+                # Create Tasks
                 for step in payload['plan']:
                     agent = agents_map.get(step['agentId']) or list(agents_map.values())[0]
-                    tasks.append(Task(description=step['instruction'], expected_output="Result", agent=agent))
+                    desc = step['instruction']
+                    if uploaded_files:
+                        desc += f" (Refer to attached files: {uploaded_files})"
+                    tasks.append(Task(description=desc, expected_output="Report", agent=agent))
 
-                # Execution
+                # Kickoff
                 await websocket.send_json({"type": "SYSTEM", "content": "Mission Started"})
                 try:
                     crew = Crew(agents=list(agents_map.values()), tasks=tasks, process=Process.sequential)

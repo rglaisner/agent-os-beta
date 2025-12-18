@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+python-multipart
 crewai
 crewai_tools
 langchain-core
@@ -7,4 +8,7 @@ langchain-google-genai
 sqlalchemy
 yfinance
 youtube-transcript-api
-langchain-experimental 
+langchain-experimental
+pandas
+openpyxl
+pypdf
