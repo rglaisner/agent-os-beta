@@ -63,6 +63,15 @@ export default function AgentPlatform() {
   const addAgent = () => {
     setAgents(prev => [...prev, { id: `agent-${Date.now()}`, role: 'New Agent', goal: 'Help', backstory: 'I help.', toolIds: [], humanInput: false }]);
   };
+
+  const addNewAgents = useCallback((newAgents: Agent[]) => {
+      setAgents(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const uniqueNewAgents = newAgents.filter(a => !existingIds.has(a.id));
+          return [...prev, ...uniqueNewAgents];
+      });
+  }, []);
+
   const updateAgent = useCallback((id: string, u: Partial<Agent>) => {
     setAgents(prev => prev.map(a => a.id === id ? { ...a, ...u } : a));
   }, []);
@@ -115,7 +124,7 @@ export default function AgentPlatform() {
             });
         };
         ws.onclose = () => setIsRunning(false);
-    } catch (e) { setIsRunning(false); }
+    } catch (e) { console.error(e); setIsRunning(false); }
   };
 
   return (
@@ -144,7 +153,7 @@ export default function AgentPlatform() {
           </div>
         )}
         <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
-            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} />}
+            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} />}
             {activeTab === 'MONITOR' && (
                 <>
                     <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>

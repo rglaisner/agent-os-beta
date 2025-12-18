@@ -18,3 +18,7 @@ class PlanRequest(BaseModel):
     goal: str
     agents: List[dict] # Simplified for now, can be stricter
     process_type: Optional[str] = "sequential"
+
+class PlanResponse(BaseModel):
+    plan: List[PlanStep]
+    newAgents: List[AgentModel]

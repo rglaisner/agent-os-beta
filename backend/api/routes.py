@@ -106,12 +106,25 @@ async def generate_plan(request: PlanRequest):
     Available Agents:
     {agent_desc}
     {process_instruction}
-    Return ONLY a JSON array: [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+
+    If the available agents are insufficient to complete the goal, you MUST suggest new agents.
+    Create a JSON object with two keys:
+    1. "plan": An array of steps [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+    2. "newAgents": An array of new agents needed [{{ "id": "unique-id", "role": "Role Name", "goal": "Agent Goal", "backstory": "Agent Backstory", "toolIds": ["tool-id", ...], "humanInput": false }}]
+
+    Ensure new agents have unique IDs (e.g., 'agent-specialist').
+    Available Tools to assign to new agents: tool-search, tool-scrape, tool-finance, tool-python, tool-rag, tool-plot, tool-builder.
+
+    Return ONLY the JSON object.
     """
     try:
         res = llm.invoke(prompt)
         text = res.content.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
+        data = json.loads(text)
+        # Normalize response if LLM returns just a list (legacy behavior fallback)
+        if isinstance(data, list):
+            return {"plan": data, "newAgents": []}
+        return data
     except Exception as e:
         raise HTTPException(500, str(e))
 
