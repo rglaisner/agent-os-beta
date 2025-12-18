@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Book, Upload, FileText, Loader } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Book, Upload, FileText, Loader, Search } from 'lucide-react';
 
 interface KnowledgeBaseProps {
   backendUrl: string;
@@ -10,22 +10,25 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const [loading, setLoading] = useState(false);
   const [uploadText, setUploadText] = useState('');
   const [uploadSource, setUploadSource] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
   const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
 
-  const fetchDocs = async () => {
+  const fetchDocs = useCallback(async () => {
     try {
       const res = await fetch(`${httpUrl}/api/knowledge`);
       const data = await res.json();
       setDocuments(data.documents);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // Ignored
     }
-  };
+  }, [httpUrl]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDocs();
-  }, []);
+  }, [fetchDocs]);
 
   const handleUpload = async () => {
     if (!uploadText || !uploadSource) return;
@@ -39,29 +42,78 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
       setUploadText('');
       setUploadSource('');
       fetchDocs();
-    } catch (e) {
+    } catch {
       alert('Error uploading');
     }
     setLoading(false);
   };
 
-  const handleFileIngest = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files?.length) return;
-      setLoading(true);
-      const fd = new FormData();
-      fd.append("file", e.target.files[0]);
-      try {
-          await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
-          fetchDocs();
-      } catch (e) { alert("Upload failed"); }
-      setLoading(false);
+  const uploadFile = async (file: File) => {
+    setLoading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+        await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
+        fetchDocs();
+    } catch { alert("Upload failed"); }
+    setLoading(false);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files?.length) {
+          uploadFile(e.target.files[0]);
+      }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files?.length) {
+      uploadFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const filteredDocs = documents.filter(doc =>
+    doc.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="flex flex-col gap-6 h-full p-1 overflow-y-auto">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Manual Entry */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full p-1 overflow-y-auto">
+      {/* LEFT COLUMN: Upload & Manual Entry */}
+      <div className="flex flex-col gap-6">
+        {/* Upload Zone */}
+        <div
+          className={`bg-white p-6 rounded-xl border-2 border-dashed shadow-sm flex flex-col transition-colors relative group
+            ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+             <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase tracking-wider"><Upload className="w-4 h-4 text-indigo-500" /> Upload Document</h2>
+             <div className="flex flex-col gap-4 h-full justify-center items-center p-6">
+                <div className="bg-indigo-50 p-4 rounded-full group-hover:bg-indigo-100 transition-colors">
+                    <Upload className="w-8 h-8 text-indigo-500" />
+                </div>
+                <div className="text-center">
+                    <p className="text-sm font-bold text-slate-700">Drag & Drop or Click to Upload</p>
+                    <p className="text-xs text-slate-400 mt-1">PDFs and Text files supported</p>
+                </div>
+                <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+             </div>
+        </div>
+
+        {/* Manual Entry */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1">
             <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase tracking-wider"><FileText className="w-4 h-4 text-indigo-500" /> Manual Entry</h2>
             <div className="flex flex-col gap-3">
                 <input
@@ -85,38 +137,48 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
                     Save to Memory
                 </button>
             </div>
-          </div>
-
-          {/* File Upload */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-             <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase tracking-wider"><Upload className="w-4 h-4 text-indigo-500" /> Upload Document</h2>
-             <div className="flex flex-col gap-4 h-full justify-center items-center border-2 border-dashed border-slate-200 rounded-lg p-6 hover:bg-slate-50 hover:border-indigo-300 transition-colors relative group">
-                <div className="bg-indigo-50 p-4 rounded-full group-hover:bg-indigo-100 transition-colors">
-                    <Upload className="w-8 h-8 text-indigo-500" />
-                </div>
-                <div className="text-center">
-                    <p className="text-sm font-bold text-slate-700">Click to ingest PDF or Text files</p>
-                    <p className="text-xs text-slate-400 mt-1">Files will be indexed for retrieval</p>
-                </div>
-                <input type="file" onChange={handleFileIngest} className="absolute inset-0 opacity-0 cursor-pointer" />
-             </div>
-          </div>
+        </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1">
-        <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase tracking-wider"><Book className="w-4 h-4 text-indigo-500" /> Existing Documents</h2>
-        {documents.length === 0 ? <p className="text-slate-400 italic text-sm border-2 border-dashed border-slate-100 p-8 text-center rounded-lg">No documents in long-term memory.</p> : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documents.map((doc, i) => (
-                    <div key={i} className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex items-center gap-3 hover:border-indigo-200 hover:shadow-sm transition-all">
-                        <div className="bg-white p-2 rounded border border-slate-100">
-                            <FileText className="w-5 h-5 text-indigo-500" />
-                        </div>
-                        <span className="font-medium text-sm text-slate-700 truncate">{doc}</span>
-                    </div>
-                ))}
-            </div>
-        )}
+      {/* RIGHT COLUMN: Document Library */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-bold flex items-center gap-2 text-slate-700 uppercase tracking-wider"><Book className="w-4 h-4 text-indigo-500" /> Knowledge Base</h2>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-4 relative">
+             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+             <input
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+             />
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-2">
+            {documents.length === 0 ? (
+                <p className="text-slate-400 italic text-sm border-2 border-dashed border-slate-100 p-8 text-center rounded-lg h-full flex items-center justify-center">
+                    No documents in long-term memory.
+                </p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    {filteredDocs.length === 0 ? (
+                         <p className="text-slate-400 italic text-sm text-center py-4">No matching documents found.</p>
+                    ) : (
+                        filteredDocs.map((doc, i) => (
+                            <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center gap-3 hover:border-indigo-200 hover:shadow-sm transition-all group">
+                                <div className="bg-white p-2 rounded border border-slate-100 group-hover:border-indigo-100">
+                                    <FileText className="w-5 h-5 text-indigo-500" />
+                                </div>
+                                <span className="font-medium text-sm text-slate-700 truncate flex-1">{doc}</span>
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+        </div>
       </div>
     </div>
   );
