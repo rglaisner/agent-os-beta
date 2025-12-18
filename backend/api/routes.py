@@ -102,7 +102,7 @@ async def generate_plan(request: PlanRequest):
         process_instruction = "The user has requested a HIERARCHICAL process. You should assume a Manager Agent will oversee these agents. Design the steps as high-level directives that the Manager can delegate."
 
     prompt = f"""
-    You are an expert project manager. Create a step-by-step execution plan for: "{request.goal}"
+    You are an expert project manager. Analyze the request: "{request.goal}"
     Available Agents:
     {agent_desc}
     {process_instruction}
