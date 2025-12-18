@@ -17,9 +17,10 @@ interface MissionControlProps {
   agents: Agent[];
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
   isRunning: boolean;
+  onAddAgents?: (agents: Agent[]) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
@@ -69,8 +70,15 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
 
       if (!response.ok) throw new Error('Backend failed');
       const data = await response.json();
-      setPlan(data);
+
+      if (data.newAgents && data.newAgents.length > 0 && onAddAgents) {
+          onAddAgents(data.newAgents);
+          // Show a small ephemeral notification? For now we just add them.
+      }
+
+      setPlan(data.plan || data); // Fallback for old format
     } catch (err) {
+      console.error(err);
       setError("Planning failed. Is the backend running?");
     } finally {
       setIsPlanning(false);

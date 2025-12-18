@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, DollarSign, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Clock, DollarSign, FileText } from 'lucide-react';
 
 interface Mission {
   id: number;
