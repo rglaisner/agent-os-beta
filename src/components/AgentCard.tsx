@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Trash2, Settings, ChevronDown, ChevronUp, Wrench } from 'lucide-react';
+import { Bot, Trash2, ChevronDown, ChevronUp, Wrench } from 'lucide-react';
 
 interface Tool {
   id: string;
@@ -19,11 +19,11 @@ interface Agent {
 interface AgentCardProps {
   agent: Agent;
   availableTools: Tool[];
-  onUpdate: (updates: Partial<Agent>) => void;
-  onRemove: () => void;
+  onUpdate: (id: string, updates: Partial<Agent>) => void;
+  onRemove: (id: string) => void;
 }
 
-export default function AgentCard({ agent, availableTools, onUpdate, onRemove }: AgentCardProps) {
+const AgentCard = React.memo(({ agent, availableTools, onUpdate, onRemove }: AgentCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleTool = (toolId: string) => {
@@ -31,7 +31,7 @@ export default function AgentCard({ agent, availableTools, onUpdate, onRemove }:
     const updated = current.includes(toolId)
       ? current.filter(id => id !== toolId)
       : [...current, toolId];
-    onUpdate({ toolIds: updated });
+    onUpdate(agent.id, { toolIds: updated });
   };
 
   return (
@@ -73,7 +73,7 @@ export default function AgentCard({ agent, availableTools, onUpdate, onRemove }:
               <input 
                 type="text" 
                 value={agent.role}
-                onChange={(e) => onUpdate({ role: e.target.value })}
+                onChange={(e) => onUpdate(agent.id, { role: e.target.value })}
                 className="w-full bg-slate-800 border-none rounded px-2 py-1.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500"
               />
             </div>
@@ -82,7 +82,7 @@ export default function AgentCard({ agent, availableTools, onUpdate, onRemove }:
               <input 
                 type="text" 
                 value={agent.goal}
-                onChange={(e) => onUpdate({ goal: e.target.value })}
+                onChange={(e) => onUpdate(agent.id, { goal: e.target.value })}
                 className="w-full bg-slate-800 border-none rounded px-2 py-1.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500"
               />
             </div>
@@ -120,14 +120,14 @@ export default function AgentCard({ agent, availableTools, onUpdate, onRemove }:
                <input 
                  type="checkbox" 
                  checked={agent.humanInput}
-                 onChange={(e) => onUpdate({ humanInput: e.target.checked })}
+                 onChange={(e) => onUpdate(agent.id, { humanInput: e.target.checked })}
                  className="rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500/50"
                />
                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Allow Human Input</span>
             </label>
 
             <button 
-              onClick={onRemove}
+              onClick={() => onRemove(agent.id)}
               className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
             >
               <Trash2 className="w-3 h-3" /> Remove Agent
@@ -138,4 +138,6 @@ export default function AgentCard({ agent, availableTools, onUpdate, onRemove }:
       )}
     </div>
   );
-}
+});
+
+export default AgentCard;
