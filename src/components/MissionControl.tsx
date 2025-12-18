@@ -17,17 +17,10 @@ interface MissionControlProps {
   agents: Agent[];
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
   isRunning: boolean;
+  onAddAgents?: (agents: Agent[]) => void;
 }
 
-// Tooltip component for hover explanations
-const Tooltip = ({ text }: { text: string }) => (
-  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-max max-w-[200px] z-50 text-center">
-    {text}
-    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-  </div>
-);
-
-export default function MissionControl({ agents, onLaunch, isRunning }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
@@ -81,20 +74,12 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
       if (!response.ok) throw new Error('Backend failed');
       const data = await response.json();
 
-      // Handle the new response format
-      if (data.plan) {
-        setPlan(data.plan);
-        if (data.suggested_mode) {
-          setProcessType(data.suggested_mode);
-        }
-        if (data.reasoning) {
-            setReasoning(data.reasoning);
-        }
-      } else {
-        // Fallback for older format if backend wasn't updated correctly or returned array
-        setPlan(data);
+      if (data.newAgents && data.newAgents.length > 0 && onAddAgents) {
+          onAddAgents(data.newAgents);
+          // Show a small ephemeral notification? For now we just add them.
       }
 
+      setPlan(data.plan || data); // Fallback for old format
     } catch (err) {
       console.error(err);
       setError("Planning failed. Is the backend running?");

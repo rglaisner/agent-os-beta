@@ -7,6 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
 from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
 from pydantic import BaseModel
+from database import get_missions, get_mission
 
 router = APIRouter()
 
@@ -106,19 +107,38 @@ async def generate_plan(request: PlanRequest):
     {agent_desc}
     {process_instruction}
 
-    1. Determine the best execution mode: 'sequential' (linear steps) or 'hierarchical' (complex tasks needing a manager).
-    2. Create a step-by-step plan.
+    If the available agents are insufficient to complete the goal, you MUST suggest new agents.
+    Create a JSON object with two keys:
+    1. "plan": An array of steps [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
+    2. "newAgents": An array of new agents needed [{{ "id": "unique-id", "role": "Role Name", "goal": "Agent Goal", "backstory": "Agent Backstory", "toolIds": ["tool-id", ...], "humanInput": false }}]
 
-    Return ONLY a JSON object:
-    {{
-      "suggested_mode": "sequential" | "hierarchical",
-      "reasoning": "Why you chose this mode (short explanation)",
-      "plan": [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details" }}]
-    }}
+    Ensure new agents have unique IDs (e.g., 'agent-specialist').
+    Available Tools to assign to new agents: tool-search, tool-scrape, tool-finance, tool-python, tool-rag, tool-plot, tool-builder.
+
+    Return ONLY the JSON object.
     """
     try:
         res = llm.invoke(prompt)
         text = res.content.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
+        data = json.loads(text)
+        # Normalize response if LLM returns just a list (legacy behavior fallback)
+        if isinstance(data, list):
+            return {"plan": data, "newAgents": []}
+        return data
     except Exception as e:
         raise HTTPException(500, str(e))
+
+@router.get("/missions")
+async def list_missions():
+    try:
+        missions = get_missions()
+        return {"missions": missions}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@router.get("/missions/{mission_id}")
+async def get_mission_details(mission_id: int):
+    mission = get_mission(mission_id)
+    if not mission:
+        raise HTTPException(404, "Mission not found")
+    return mission
