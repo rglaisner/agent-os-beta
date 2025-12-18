@@ -71,7 +71,7 @@ async def generate_plan(request: PlanRequest):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key: raise HTTPException(500, "Missing API Key")
     
-    llm = ChatGoogleGenerativeAI(model="gemini/gemini-2.5-flash", google_api_key=api_key, temperature=0.7)
+    llm = ChatGoogleGenerativeAI(model="gemini/gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
     
     agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
     prompt = f"""
@@ -171,7 +171,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 os.environ["GOOGLE_API_KEY"] = api_key
                 os.environ["OPENAI_API_KEY"] = "NA" # CrewAI fix
                 
-                llm = LLM(model="gemini/gemini-1.5-flash", temperature=0.7)
+                llm = LLM(model="gemini/gemini-2.0-flash", temperature=0.7)
                 
                 # Handle Files
                 # The frontend sends us a list of "server_path" strings for uploaded files
