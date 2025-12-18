@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Bot, Plus } from 'lucide-react';
 import LiveMonitor from './components/LiveMonitor';
 import AgentCard from './components/AgentCard';
@@ -59,10 +59,16 @@ export default function AgentPlatform() {
   const wsRef = useRef<WebSocket | null>(null);
 
   const addAgent = () => {
-    setAgents([...agents, { id: `agent-${Date.now()}`, role: 'New Agent', goal: 'Help', backstory: 'I help.', toolIds: [], humanInput: false }]);
+    setAgents(prev => [...prev, { id: `agent-${Date.now()}`, role: 'New Agent', goal: 'Help', backstory: 'I help.', toolIds: [], humanInput: false }]);
   };
-  const updateAgent = (id: string, u: Partial<Agent>) => setAgents(agents.map(a => a.id === id ? { ...a, ...u } : a));
-  const removeAgent = (id: string) => setAgents(agents.filter(a => a.id !== id));
+  const updateAgent = useCallback((id: string, u: Partial<Agent>) => {
+    setAgents(prev => prev.map(a => a.id === id ? { ...a, ...u } : a));
+  }, []);
+
+  const removeAgent = useCallback((id: string) => {
+    setAgents(prev => prev.filter(a => a.id !== id));
+  }, []);
+
   const stopSimulation = () => { if (wsRef.current) wsRef.current.close(); setIsRunning(false); };
 
   // Updated to accept files and process type
@@ -121,7 +127,7 @@ export default function AgentPlatform() {
         {activeTab !== 'KNOWLEDGE' && (
           <div className={`w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto ${activeTab === 'MONITOR' ? 'hidden lg:flex lg:opacity-50' : ''}`}>
              <div className="flex justify-between items-center"><h2 className="font-bold text-slate-400 text-xs uppercase">Agents</h2><button onClick={addAgent}><Plus className="w-4 h-4" /></button></div>
-             {agents.map(a => <AgentCard key={a.id} agent={a} availableTools={DEFAULT_TOOLS} onUpdate={(u) => updateAgent(a.id, u)} onRemove={() => removeAgent(a.id)} />)}
+             {agents.map(a => <AgentCard key={a.id} agent={a} availableTools={DEFAULT_TOOLS} onUpdate={updateAgent} onRemove={removeAgent} />)}
           </div>
         )}
         <div className="flex-1 flex flex-col gap-4 h-full">
