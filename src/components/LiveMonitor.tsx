@@ -41,51 +41,54 @@ export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProp
         return (
             <div>
                 {parts[0]}
-                <div className="my-2 border border-slate-700 rounded overflow-hidden max-w-md">
+                <div className="my-2 border border-slate-200 rounded overflow-hidden max-w-md shadow-sm">
                     <img src={`${httpBase}${imgMatch[0]}`} alt="Generated Chart" className="w-full" />
                 </div>
                 {parts[1]}
             </div>
         );
     }
-    return <p className="whitespace-pre-wrap break-words leading-relaxed text-slate-300">{content}</p>;
+    return <p className="whitespace-pre-wrap break-words leading-relaxed text-slate-700">{content}</p>;
   };
 
   return (
-    <div className="flex h-full bg-slate-950">
+    <div className="flex h-full bg-white text-sm">
       {/* Main Log Area */}
-      <div className="flex-1 flex flex-col border-r border-slate-800">
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
+      <div className="flex-1 flex flex-col border-r border-slate-200">
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
             <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-indigo-400" />
-              <span className="font-mono text-xs font-bold text-slate-400 uppercase tracking-wider">Live Terminal</span>
+              <div className="bg-white p-1 rounded shadow-sm border border-slate-200">
+                  <Terminal className="w-3.5 h-3.5 text-indigo-600" />
+              </div>
+              <span className="font-bold text-slate-700 uppercase tracking-wider text-xs">Live Terminal</span>
             </div>
             {isRunning && (
-              <button onClick={onStop} className="flex items-center gap-2 px-3 py-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs rounded border border-red-800 transition-all">
+              <button onClick={onStop} className="flex items-center gap-2 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs rounded border border-red-200 transition-all font-bold">
                 <StopCircle className="w-3 h-3" /> STOP
               </button>
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 font-mono text-sm space-y-3">
+          <div className="flex-1 overflow-y-auto p-5 font-mono space-y-4 bg-white">
             {logs.length === 0 && (
-              <div className="text-slate-600 text-center mt-10 italic">
+              <div className="text-slate-400 text-center mt-20 italic flex flex-col items-center">
+                <Terminal className="w-8 h-8 mb-2 opacity-50" />
                 Ready to initialize mission...
               </div>
             )}
             {logs.map((log, i) => (
-              <div key={i} className="flex gap-3 animate-in fade-in duration-300">
-                <span className="text-slate-600 text-[10px] shrink-0 pt-1">
+              <div key={i} className="flex gap-4 animate-in fade-in duration-300 group">
+                <span className="text-slate-400 text-[10px] shrink-0 pt-1 select-none w-12 text-right">
                     {log.timestamp.split('T')[1]?.split('.')[0] || '00:00:00'}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`text-[10px] px-1.5 py-0 rounded font-bold uppercase tracking-wider ${
-                      log.type === 'THOUGHT' ? 'bg-indigo-900/30 text-indigo-400' :
-                      log.type === 'ACTION' ? 'bg-amber-900/30 text-amber-400' :
-                      log.type === 'ERROR' ? 'bg-red-900/30 text-red-400' :
-                      log.type === 'OUTPUT' ? 'bg-green-900/30 text-green-400' :
-                      'bg-slate-800 text-slate-400'
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border shadow-sm ${
+                      log.type === 'THOUGHT' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                      log.type === 'ACTION' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                      log.type === 'ERROR' ? 'bg-red-50 text-red-600 border-red-100' :
+                      log.type === 'OUTPUT' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      'bg-slate-100 text-slate-500 border-slate-200'
                     }`}>
                       {log.agentName}
                     </span>
@@ -100,17 +103,17 @@ export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProp
 
       {/* Dashboard Panel (Right Side) */}
       {images.length > 0 && (
-          <div className="w-64 bg-slate-900 flex flex-col border-l border-slate-800">
-              <div className="h-10 border-b border-slate-800 bg-slate-900/50 flex items-center px-4 font-bold text-xs uppercase text-indigo-400">
-                  <Activity className="w-3 h-3 mr-2" /> Data Dashboard
+          <div className="w-72 bg-slate-50 flex flex-col border-l border-slate-200 shadow-xl shadow-slate-200 z-10">
+              <div className="h-12 border-b border-slate-200 bg-white flex items-center px-4 font-bold text-xs uppercase text-indigo-600 tracking-wider">
+                  <Activity className="w-4 h-4 mr-2" /> Data Dashboard
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {images.map((img, i) => {
                       const httpBase = import.meta.env.VITE_BACKEND_URL ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('/ws', '') : 'http://localhost:8000';
                        return (
-                          <div key={i} className="border border-slate-700 rounded overflow-hidden bg-slate-950">
-                              <img src={`${httpBase}${img}`} alt={`Chart ${i}`} className="w-full" />
-                              <div className="p-2 text-[10px] text-slate-500 text-center border-t border-slate-800">Chart #{i+1}</div>
+                          <div key={i} className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                              <img src={`${httpBase}${img}`} alt={`Chart ${i}`} className="w-full bg-slate-50" />
+                              <div className="p-2 text-[10px] text-slate-500 text-center border-t border-slate-100 font-medium">Chart #{i+1}</div>
                           </div>
                       )
                   })}
