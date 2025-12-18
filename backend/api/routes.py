@@ -5,7 +5,7 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
-from tools.rag import add_document_to_kb, list_documents
+from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -13,6 +13,9 @@ router = APIRouter()
 class KnowledgeUpload(BaseModel):
     text: str
     source: str
+
+class KnowledgeSearch(BaseModel):
+    query: str
 
 @router.post("/knowledge")
 async def add_knowledge(data: KnowledgeUpload):
@@ -53,6 +56,18 @@ async def upload_knowledge(file: UploadFile = File(...)):
 @router.get("/knowledge")
 async def get_knowledge():
     return {"documents": list_documents()}
+
+@router.delete("/knowledge/{source_name}")
+async def delete_knowledge(source_name: str):
+    success = delete_document_by_source(source_name)
+    if not success:
+        raise HTTPException(500, "Failed to delete document")
+    return {"status": "success", "message": f"Deleted {source_name}"}
+
+@router.post("/knowledge/search")
+async def search_knowledge(data: KnowledgeSearch):
+    results = search_documents(data.query)
+    return {"results": results}
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):

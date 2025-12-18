@@ -1,0 +1,7 @@
+INFO:     Started server process [4814]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:37770 - "GET /api/knowledge HTTP/1.1" 200 OK
+Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
+INFO:     127.0.0.1:56016 - "POST /api/knowledge/search HTTP/1.1" 200 OK
