@@ -78,6 +78,20 @@ async def websocket_handler(websocket: WebSocket):
 
                     crew = Crew(**crew_args)
 
+                    # Training Phase
+                    train_iterations = 0
+                    if 'plan' in payload:
+                        for step in payload['plan']:
+                            if step.get('trainingIterations'):
+                                train_iterations = max(train_iterations, int(step['trainingIterations']))
+
+                    if train_iterations > 0:
+                        await websocket.send_json({"type": "SYSTEM", "content": f"Initiating Training Phase ({train_iterations} iterations)..."})
+                        # Create a unique filename for training data
+                        train_file = f"uploads/training_mission_{mission_id}.pkl"
+                        await asyncio.get_event_loop().run_in_executor(None, lambda: crew.train(n_iterations=train_iterations, filename=train_file))
+                        await websocket.send_json({"type": "SYSTEM", "content": "Training Complete. Starting Mission..."})
+
                     result = await asyncio.get_event_loop().run_in_executor(None, crew.kickoff)
                     update_mission_result(mission_id, str(result))
                     await websocket.send_json({"type": "OUTPUT", "content": str(result), "agentName": "System"})

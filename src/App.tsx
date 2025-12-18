@@ -10,7 +10,7 @@ import KnowledgeBase from './components/KnowledgeBase';
 interface Tool { id: string; name: string; description: string; }
 interface Agent { id: string; role: string; goal: string; backstory: string; toolIds: string[]; humanInput: boolean; }
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
-interface PlanStep { id: string; agentId: string; instruction: string; }
+interface PlanStep { id: string; agentId: string; instruction: string; trainingIterations?: number; }
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
 // --- RESTORED DEFAULTS ---
