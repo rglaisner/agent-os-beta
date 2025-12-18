@@ -84,3 +84,43 @@ def list_documents():
         return list(sources)
     except:
         return []
+
+def delete_document_by_source(source_name: str):
+    """Deletes all chunks associated with a specific source name."""
+    collection = get_collection()
+    try:
+        # chroma delete by where clause
+        collection.delete(where={"source": source_name})
+        return True
+    except Exception as e:
+        print(f"Error deleting document {source_name}: {e}")
+        return False
+
+def search_documents(query: str, n_results: int = 5):
+    """Searches the knowledge base and returns raw results."""
+    try:
+        collection = get_collection()
+        embed_model = get_embeddings_model()
+        query_embedding = embed_model.embed_query(query)
+
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=n_results
+        )
+
+        output = []
+        if results and results['documents']:
+            documents = results['documents'][0]
+            metadatas = results['metadatas'][0]
+            distances = results['distances'][0] if 'distances' in results else [0]*len(documents)
+
+            for i, doc in enumerate(documents):
+                output.append({
+                    "content": doc,
+                    "metadata": metadatas[i],
+                    "score": distances[i]
+                })
+        return output
+    except Exception as e:
+        print(f"Error searching documents: {e}")
+        return []
