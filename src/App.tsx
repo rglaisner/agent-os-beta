@@ -22,6 +22,12 @@ const DEFAULT_TOOLS: Tool[] = [
   { id: 'tool-rag', name: 'Knowledge Base', description: 'Search long-term memory.' },
   { id: 'tool-plot', name: 'Data Visualizer', description: 'Create Charts & Graphs.' },
   { id: 'tool-builder', name: 'Tool Builder', description: 'Create new tools from code.' },
+  { id: 'tool-csv', name: 'CSV Search', description: 'Search CSV content.' },
+  { id: 'tool-docx', name: 'DOCX Search', description: 'Search DOCX content.' },
+  { id: 'tool-json', name: 'JSON Search', description: 'Search JSON content.' },
+  { id: 'tool-brave', name: 'Brave Search', description: 'Search via Brave API.' },
+  { id: 'tool-serpapi', name: 'Google SerpApi', description: 'Google Search via SerpApi.' },
+  { id: 'tool-rag-crew', name: 'CrewAI RAG', description: 'CrewAI native RAG tool.' },
 ];
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -42,27 +48,51 @@ const DEFAULT_AGENTS: Agent[] = [
     humanInput: false
   },
   {
-    id: 'agent-researcher',
-    role: 'Senior Researcher',
-    goal: 'Uncover detailed information',
-    backstory: 'You are an expert researcher at a top firm.',
-    toolIds: ['tool-search', 'tool-scrape', 'tool-python'],
+    id: 'agent-job-mapper',
+    role: 'Enterprise Job Architecture Mapper',
+    goal: 'Analyze enterprise-wide data files to suggest improvements and alignments serving 2 goals: alignment following business imperative and standardization using lightcast.io taxonomies.',
+    backstory: 'You are a top strategist with 20 years of experience in leading and conceptualizing large enterprise transformations. You have a passion for HR-related transformation and understand that it must be anticipated like business disruption.',
+    toolIds: ['tool-csv', 'tool-docx', 'tool-json'],
     humanInput: false
   },
   {
-    id: 'agent-analyst',
+    id: 'agent-role-mapper',
+    role: 'Role to Skill Mapper',
+    goal: 'Map out skill profiles from role information to power skills-enabled use-cases.',
+    backstory: 'You are a visionary with business and strategy acumen in HR. You understand the HR perspective to Skills as observing money in a bank, and the business perspective as applying that money to generate value.',
+    toolIds: ['tool-brave', 'tool-csv', 'tool-json', 'tool-rag-crew', 'tool-serpapi'],
+    humanInput: false
+  },
+  {
+    id: 'agent-xls-guru',
+    role: 'XLS File Guru',
+    goal: 'Read xls content and get other agents to understand all possible subtility from the content reading. You turn the content into something that makes sense.',
+    backstory: 'You are the spirit leader of the church of XLS. And you understand it all. And you can make sense of the content. Always. It has been your life over the past 50 years.',
+    toolIds: ['tool-brave', 'tool-csv'],
+    humanInput: false
+  },
+  {
+    id: 'agent-data-master',
     role: 'Data Analyst',
-    goal: 'Analyze data and find trends',
-    backstory: 'You specialize in reading spreadsheets and Python analysis.',
+    goal: 'Perform deep analysis of large datasets',
+    backstory: 'Specialized in big data analysis and pattern recognition',
     toolIds: ['tool-python'],
     humanInput: false
   },
   {
-    id: 'agent-writer',
-    role: 'Technical Writer',
-    goal: 'Write comprehensive reports',
-    backstory: 'You summarize complex data into clear reports.',
-    toolIds: [],
+    id: 'agent-qc-eng',
+    role: 'Software Quality Control Engineer',
+    goal: 'Create Perfect code, by analyzing the code that is given for errors',
+    backstory: 'You are a software engineer that specializes in checking code for errors. You have an eye for detail and a knack for finding hidden bugs. You check for missing imports, variable declarations, mismatched brackets and syntax errors. You also check for security vulnerabilities, and logic errors',
+    toolIds: ['tool-python'],
+    humanInput: false
+  },
+  {
+    id: 'agent-chief-qc',
+    role: 'Chief Quality Engineering',
+    goal: 'Ensure that the code does the job that it is supposed to do',
+    backstory: 'You feel that programmers always do only half the job, so you are super dedicate to make high quality code.',
+    toolIds: ['tool-python'],
     humanInput: false
   }
 ];
