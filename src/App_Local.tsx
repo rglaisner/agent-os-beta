@@ -642,13 +642,27 @@ export default function AgentPlatform() {
   const [activeTab, setActiveTab] = useState('mission');
   const [tools, setTools] = useState<Tool[]>(DEFAULT_TOOLS);
   const [agents, setAgents] = useState<Agent[]>(() => {
-      const saved = localStorage.getItem('agent_os_library');
-      return saved ? JSON.parse(saved) : DEFAULT_AGENTS;
+      try {
+          const saved = localStorage.getItem('agent_os_library');
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) {
+                  return parsed;
+              }
+          }
+      } catch (e) {
+          console.error("Failed to parse agents from local storage", e);
+      }
+      return DEFAULT_AGENTS;
   });
   
-  // FIX: Auto-save agents to local storage whenever they change
+  // Auto-save agents to local storage whenever they change.
   useEffect(() => {
-      localStorage.setItem('agent_os_library', JSON.stringify(agents));
+      try {
+          localStorage.setItem('agent_os_library', JSON.stringify(agents));
+      } catch (e) {
+          console.error("Failed to save agents to local storage", e);
+      }
   }, [agents]);
 
   const [logs, setLogs] = useState<LogEntry[]>([]);

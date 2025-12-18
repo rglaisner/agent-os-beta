@@ -29,7 +29,7 @@ export default function MissionControl({ agents, onLaunch, isRunning }: MissionC
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL 
-    ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://')
+    ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
     : 'http://localhost:8000';
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

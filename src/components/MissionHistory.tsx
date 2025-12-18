@@ -19,7 +19,7 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
   const [loading, setLoading] = useState(true);
 
   // Convert WebSocket URL (wss://) to HTTP URL (https://) for the API
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+  const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '');
 
   useEffect(() => {
     fetch(`${httpUrl}/api/missions`)
