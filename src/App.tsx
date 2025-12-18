@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Bot, Plus } from 'lucide-react';
+import { Bot, Plus, Coins, Zap } from 'lucide-react';
 import LiveMonitor from './components/LiveMonitor';
 import AgentCard from './components/AgentCard';
 import MissionControl from './components/MissionControl';
@@ -11,6 +11,7 @@ interface Tool { id: string; name: string; description: string; }
 interface Agent { id: string; role: string; goal: string; backstory: string; toolIds: string[]; humanInput: boolean; }
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
 interface PlanStep { id: string; agentId: string; instruction: string; }
+interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
 // --- RESTORED DEFAULTS ---
 const DEFAULT_TOOLS: Tool[] = [
@@ -56,6 +57,7 @@ export default function AgentPlatform() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR' | 'KNOWLEDGE'>('SETUP');
+  const [usage, setUsage] = useState<TokenUsage>({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
   const wsRef = useRef<WebSocket | null>(null);
 
   const addAgent = () => {
@@ -76,6 +78,7 @@ export default function AgentPlatform() {
     setIsRunning(true);
     setActiveTab('MONITOR');
     setLogs([]);
+    setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 }); // Reset Usage
     try {
         const ws = new WebSocket(backendUrl);
         wsRef.current = ws;
@@ -87,6 +90,11 @@ export default function AgentPlatform() {
             if (data.type === 'HUMAN_INPUT_REQUEST') {
                 const response = prompt(`Agent asks: ${data.content}`);
                 ws.send(JSON.stringify({ action: "HUMAN_RESPONSE", requestId: data.requestId, content: response || "None" }));
+                return;
+            }
+
+            if (data.type === 'USAGE') {
+                setUsage(data.content);
                 return;
             }
 
@@ -111,8 +119,8 @@ export default function AgentPlatform() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <header className="h-16 border-b border-slate-200 bg-white/80 backdrop-blur-sm flex items-center px-6 justify-between sticky top-0 z-10 shadow-sm">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col">
+      <header className="h-16 border-b border-slate-800 bg-slate-950/50 flex items-center px-4 justify-between sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
                 <Bot className="w-5 h-5" />
@@ -125,7 +133,7 @@ export default function AgentPlatform() {
             <button onClick={() => setActiveTab('KNOWLEDGE')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'KNOWLEDGE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Knowledge</button>
         </div>
       </header>
-      <main className="container mx-auto p-6 flex flex-col lg:flex-row gap-6 h-[calc(100vh-80px)]">
+      <main className="container mx-auto p-4 flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
         {activeTab !== 'KNOWLEDGE' && (
           <div className={`w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto ${activeTab === 'MONITOR' ? 'hidden lg:flex lg:opacity-50' : ''}`}>
              <div className="flex justify-between items-center px-1">
@@ -135,7 +143,7 @@ export default function AgentPlatform() {
              {agents.map(a => <AgentCard key={a.id} agent={a} availableTools={DEFAULT_TOOLS} onUpdate={updateAgent} onRemove={removeAgent} />)}
           </div>
         )}
-        <div className="flex-1 flex flex-col gap-4 h-full">
+        <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
             {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} />}
             {activeTab === 'MONITOR' && (
                 <>
@@ -146,6 +154,22 @@ export default function AgentPlatform() {
             {activeTab === 'KNOWLEDGE' && <KnowledgeBase backendUrl={backendUrl} />}
         </div>
       </main>
+
+      {/* Token & Cost Display Footer */}
+      {(isRunning || usage.totalCost > 0) && (
+        <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0">
+             <div className="flex items-center gap-1.5 text-slate-400" title="Estimated Input/Output Tokens">
+                 <Zap className="w-3 h-3 text-yellow-500" />
+                 <span>IN: {usage.inputTokens.toLocaleString()}</span>
+                 <span className="text-slate-600">|</span>
+                 <span>OUT: {usage.outputTokens.toLocaleString()}</span>
+             </div>
+             <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
+                 <Coins className="w-3 h-3" />
+                 <span>${usage.totalCost.toFixed(5)}</span>
+             </div>
+        </footer>
+      )}
     </div>
   );
 }

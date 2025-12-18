@@ -18,7 +18,9 @@ import {
   Save,
   StopCircle,
   LifeBuoy,
-  UserPlus // Icon for new agent alert
+  UserPlus,
+  Coins, // Icon for cost
+  Zap // Icon for tokens
 } from 'lucide-react';
 
 // --- Types & Interfaces ---
@@ -64,6 +66,12 @@ interface Artifact {
   title: string;
   content: string;
   agentName: string;
+}
+
+interface TokenUsage {
+    inputTokens: number;
+    outputTokens: number;
+    totalCost: number;
 }
 
 // --- Agents Data ---
@@ -668,6 +676,7 @@ export default function AgentPlatform() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [usage, setUsage] = useState<TokenUsage>({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
   const stopSignal = useRef(false);
 
   const extractArtifacts = (text: string, agentName: string) => {
@@ -701,6 +710,7 @@ export default function AgentPlatform() {
     setActiveTab('monitor');
     setIsRunning(true);
     setLogs([]);
+    setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
     
     // 1. Pack the Mission Data
     // We send your Agent definitions and the Plan steps to Python
@@ -734,7 +744,8 @@ export default function AgentPlatform() {
       
       ws.onopen = () => {
         // Send the payload immediately
-        ws.send(JSON.stringify(payload));
+        // FIXED: Wrap payload to match backend expectation
+        ws.send(JSON.stringify({ action: "START_MISSION", payload }));
         setLogs(p => [...p, { 
              id: 'sys-connect', 
              timestamp: Date.now(), 
@@ -752,6 +763,11 @@ export default function AgentPlatform() {
         if (msg.type === 'ERROR') {
              setLogs(p => [...p, { id: `err-${Date.now()}`, timestamp: Date.now(), agentName: 'System', type: 'ERROR', content: msg.content }]);
              return;
+        }
+
+        if (msg.type === 'USAGE') {
+            setUsage(msg.content);
+            return;
         }
 
         const newLog: LogEntry = {
@@ -792,14 +808,30 @@ export default function AgentPlatform() {
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-indigo-500 selection:text-white">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      <main className="flex-1 h-full overflow-hidden relative">
-        {activeTab === 'agents' && <AgentLab agents={agents} setAgents={setAgents} />}
-        {activeTab === 'mission' && <MissionControl agents={agents} setAgents={setAgents} onLaunch={runOrchestratedSimulation} />}
-        {activeTab === 'monitor' && <LiveMonitor logs={logs} artifacts={artifacts} isRunning={isRunning} onStop={handleStop} />}
-        {activeTab === 'code' && <CodeExport agents={agents} />}
+      <main className="flex-1 h-full overflow-hidden relative flex flex-col">
+        <div className="flex-1 overflow-hidden">
+            {activeTab === 'agents' && <AgentLab agents={agents} setAgents={setAgents} />}
+            {activeTab === 'mission' && <MissionControl agents={agents} setAgents={setAgents} onLaunch={runOrchestratedSimulation} />}
+            {activeTab === 'monitor' && <LiveMonitor logs={logs} artifacts={artifacts} isRunning={isRunning} onStop={handleStop} />}
+            {activeTab === 'code' && <CodeExport agents={agents} />}
+        </div>
+
+        {/* Token & Cost Display Footer */}
+        {(isRunning || usage.totalCost > 0) && (
+            <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0 text-slate-400">
+                <div className="flex items-center gap-1.5" title="Estimated Input/Output Tokens">
+                    <Zap className="w-3 h-3 text-yellow-500" />
+                    <span>IN: {usage.inputTokens.toLocaleString()}</span>
+                    <span className="text-slate-600">|</span>
+                    <span>OUT: {usage.outputTokens.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
+                    <Coins className="w-3 h-3" />
+                    <span>${usage.totalCost.toFixed(5)}</span>
+                </div>
+            </footer>
+        )}
       </main>
     </div>
   );
 }
-
-
