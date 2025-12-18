@@ -12,3 +12,6 @@ langchain-experimental
 pandas
 openpyxl
 pypdf
+chromadb
+matplotlib
+seaborn

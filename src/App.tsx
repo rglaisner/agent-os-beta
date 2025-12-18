@@ -4,6 +4,7 @@ import LiveMonitor from './components/LiveMonitor';
 import AgentCard from './components/AgentCard';
 import MissionControl from './components/MissionControl';
 import MissionHistory from './components/MissionHistory';
+import KnowledgeBase from './components/KnowledgeBase';
 
 // --- TYPES ---
 interface Tool { id: string; name: string; description: string; }
@@ -17,6 +18,9 @@ const DEFAULT_TOOLS: Tool[] = [
   { id: 'tool-scrape', name: 'Website Scraper', description: 'Read website content.' },
   { id: 'tool-finance', name: 'Stock Data', description: 'Yahoo Finance prices.' },
   { id: 'tool-python', name: 'Python Calculator', description: 'Run Python code & Analyze Data.' },
+  { id: 'tool-rag', name: 'Knowledge Base', description: 'Search long-term memory.' },
+  { id: 'tool-plot', name: 'Data Visualizer', description: 'Create Charts & Graphs.' },
+  { id: 'tool-builder', name: 'Tool Builder', description: 'Create new tools from code.' },
 ];
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -51,7 +55,7 @@ export default function AgentPlatform() {
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR'>('SETUP');
+  const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR' | 'KNOWLEDGE'>('SETUP');
   const wsRef = useRef<WebSocket | null>(null);
 
   const addAgent = () => {
@@ -61,8 +65,8 @@ export default function AgentPlatform() {
   const removeAgent = (id: string) => setAgents(agents.filter(a => a.id !== id));
   const stopSimulation = () => { if (wsRef.current) wsRef.current.close(); setIsRunning(false); };
 
-  // Updated to accept files
-  const runOrchestratedSimulation = async (plan: PlanStep[], files: string[]) => {
+  // Updated to accept files and process type
+  const runOrchestratedSimulation = async (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => {
     setIsRunning(true);
     setActiveTab('MONITOR');
     setLogs([]);
@@ -70,7 +74,7 @@ export default function AgentPlatform() {
         const ws = new WebSocket(backendUrl);
         wsRef.current = ws;
         ws.onopen = () => {
-            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files } }));
+            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
         };
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -79,7 +83,22 @@ export default function AgentPlatform() {
                 ws.send(JSON.stringify({ action: "HUMAN_RESPONSE", requestId: data.requestId, content: response || "None" }));
                 return;
             }
-            setLogs(prev => [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: data.type, content: data.content }]);
+
+            setLogs(prev => {
+                // Streaming Logic: If STREAM, append to last log if it's also STREAM/THOUGHT from same agent
+                if (data.type === 'STREAM') {
+                    const last = prev[prev.length - 1];
+                    if (last && (last.type === 'THOUGHT' || last.type === 'STREAM') && last.agentName === data.agentName) {
+                        return [
+                            ...prev.slice(0, -1),
+                            { ...last, content: last.content + data.content, type: 'THOUGHT' } // Keep type as THOUGHT for display
+                        ];
+                    }
+                    // Start new stream
+                    return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: 'THOUGHT', content: data.content }];
+                }
+                return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: data.type, content: data.content }];
+            });
         };
         ws.onclose = () => setIsRunning(false);
     } catch (e) { setIsRunning(false); }
@@ -95,19 +114,25 @@ export default function AgentPlatform() {
         <div className="flex gap-2">
             <button onClick={() => setActiveTab('SETUP')} className={`px-3 py-1 rounded text-sm ${activeTab === 'SETUP' ? 'bg-indigo-600' : 'text-slate-400'}`}>Setup</button>
             <button onClick={() => setActiveTab('MONITOR')} className={`px-3 py-1 rounded text-sm ${activeTab === 'MONITOR' ? 'bg-indigo-600' : 'text-slate-400'}`}>Monitor</button>
+            <button onClick={() => setActiveTab('KNOWLEDGE')} className={`px-3 py-1 rounded text-sm ${activeTab === 'KNOWLEDGE' ? 'bg-indigo-600' : 'text-slate-400'}`}>Knowledge</button>
         </div>
       </header>
       <main className="container mx-auto p-4 flex flex-col lg:flex-row gap-6 h-[calc(100vh-80px)]">
-        <div className={`w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto ${activeTab === 'MONITOR' ? 'hidden lg:flex lg:opacity-50' : ''}`}>
-           <div className="flex justify-between items-center"><h2 className="font-bold text-slate-400 text-xs uppercase">Agents</h2><button onClick={addAgent}><Plus className="w-4 h-4" /></button></div>
-           {agents.map(a => <AgentCard key={a.id} agent={a} availableTools={DEFAULT_TOOLS} onUpdate={(u) => updateAgent(a.id, u)} onRemove={() => removeAgent(a.id)} />)}
-        </div>
+        {activeTab !== 'KNOWLEDGE' && (
+          <div className={`w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto ${activeTab === 'MONITOR' ? 'hidden lg:flex lg:opacity-50' : ''}`}>
+             <div className="flex justify-between items-center"><h2 className="font-bold text-slate-400 text-xs uppercase">Agents</h2><button onClick={addAgent}><Plus className="w-4 h-4" /></button></div>
+             {agents.map(a => <AgentCard key={a.id} agent={a} availableTools={DEFAULT_TOOLS} onUpdate={(u) => updateAgent(a.id, u)} onRemove={() => removeAgent(a.id)} />)}
+          </div>
+        )}
         <div className="flex-1 flex flex-col gap-4 h-full">
-            {activeTab === 'SETUP' ? <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} /> : 
+            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} />}
+            {activeTab === 'MONITOR' && (
                 <>
                     <div className="flex-1 bg-slate-900 rounded-xl border border-slate-800 overflow-hidden relative"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
                     <div className="h-64"><MissionHistory backendUrl={backendUrl} /></div>
-                </>}
+                </>
+            )}
+            {activeTab === 'KNOWLEDGE' && <KnowledgeBase backendUrl={backendUrl} />}
         </div>
       </main>
     </div>
