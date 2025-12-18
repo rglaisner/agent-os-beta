@@ -656,7 +656,7 @@ export default function AgentPlatform() {
       return DEFAULT_AGENTS;
   });
   
-  // Auto-save agents to local storage whenever they change
+  // Auto-save agents to local storage whenever they change.
   useEffect(() => {
       try {
           localStorage.setItem('agent_os_library', JSON.stringify(agents));
