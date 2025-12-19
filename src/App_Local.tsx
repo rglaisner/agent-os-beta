@@ -837,20 +837,18 @@ export default function AgentPlatform() {
         </div>
 
         {/* Token & Cost Display Footer */}
-        {(isRunning || usage.totalCost > 0) && (
-            <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0 text-slate-400">
-                <div className="flex items-center gap-1.5" title="Estimated Input/Output Tokens">
-                    <Zap className="w-3 h-3 text-yellow-500" />
-                    <span>IN: {usage.inputTokens.toLocaleString()}</span>
-                    <span className="text-slate-600">|</span>
-                    <span>OUT: {usage.outputTokens.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
-                    <Coins className="w-3 h-3" />
-                    <span>${usage.totalCost.toFixed(5)}</span>
-                </div>
-            </footer>
-        )}
+        <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0 text-slate-400">
+            <div className="flex items-center gap-1.5" title="Estimated Input/Output Tokens">
+                <Zap className="w-3 h-3 text-yellow-500" />
+                <span>IN: {usage.inputTokens.toLocaleString()}</span>
+                <span className="text-slate-600">|</span>
+                <span>OUT: {usage.outputTokens.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
+                <Coins className="w-3 h-3" />
+                <span>${usage.totalCost.toFixed(5)}</span>
+            </div>
+        </footer>
       </main>
     </div>
   );

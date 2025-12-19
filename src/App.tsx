@@ -144,7 +144,7 @@ export default function AgentPlatform() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col">
+    <div className="h-screen bg-slate-950 text-slate-200 font-sans flex flex-col overflow-hidden">
       <header className="h-16 border-b border-slate-800 bg-slate-950/50 flex items-center px-4 justify-between sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
@@ -181,20 +181,18 @@ export default function AgentPlatform() {
       </main>
 
       {/* Token & Cost Display Footer */}
-      {(isRunning || usage.totalCost > 0) && (
-        <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0">
-             <div className="flex items-center gap-1.5 text-slate-400" title="Estimated Input/Output Tokens">
-                 <Zap className="w-3 h-3 text-yellow-500" />
-                 <span>IN: {usage.inputTokens.toLocaleString()}</span>
-                 <span className="text-slate-600">|</span>
-                 <span>OUT: {usage.outputTokens.toLocaleString()}</span>
-             </div>
-             <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
-                 <Coins className="w-3 h-3" />
-                 <span>${usage.totalCost.toFixed(5)}</span>
-             </div>
-        </footer>
-      )}
+      <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0">
+            <div className="flex items-center gap-1.5 text-slate-400" title="Estimated Input/Output Tokens">
+                <Zap className="w-3 h-3 text-yellow-500" />
+                <span>IN: {usage.inputTokens.toLocaleString()}</span>
+                <span className="text-slate-600">|</span>
+                <span>OUT: {usage.outputTokens.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
+                <Coins className="w-3 h-3" />
+                <span>${usage.totalCost.toFixed(5)}</span>
+            </div>
+      </footer>
     </div>
   );
 }
