@@ -10,23 +10,19 @@ from crewai_tools import (
 )
 
 from core.socket_handler import WebSocketHandler
+from core.config import DEFAULT_MODEL, MANAGER_MODEL, check_api_key, ensure_openai_key
 from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_input_store, WrapperPythonREPLTool
 from tools.rag import KnowledgeBaseTool
 from tools.plotting import DataVisualizationTool
 from tools.custom_tool_manager import ToolCreatorTool, load_custom_tools
 
 # Ensure OpenAI Key is set to avoid validation errors for tools that default to it
-# This is a known workaround for CrewAI when using other LLM providers for everything else.
-if "OPENAI_API_KEY" not in os.environ:
-    os.environ["OPENAI_API_KEY"] = "NA"
-
-# Configuration
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini/gemini-2.0-flash")
-MANAGER_MODEL = os.getenv("MANAGER_MODEL", "gemini/gemini-2.5-pro")
-
-WARNED_MISSING_KEYS = set()
+ensure_openai_key()
 
 def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, file_paths: List[str]) -> List[Any]:
+    """
+    Instantiate and return a list of tools based on the provided tool IDs.
+    """
     tools = []
     # Standard
     if "tool-search" in tool_ids: tools.append(SerperDevTool())
@@ -44,18 +40,12 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if "tool-json" in tool_ids: tools.append(JSONSearchTool())
 
     if "tool-brave" in tool_ids:
-        if "BRAVE_API_KEY" in os.environ:
+        if check_api_key("BRAVE_API_KEY", "BraveSearchTool"):
             tools.append(BraveSearchTool())
-        elif "BRAVE_API_KEY" not in WARNED_MISSING_KEYS:
-            print("Warning: BRAVE_API_KEY not found. BraveSearchTool skipped.")
-            WARNED_MISSING_KEYS.add("BRAVE_API_KEY")
 
     if "tool-serpapi" in tool_ids:
-        if "SERPAPI_API_KEY" in os.environ:
+        if check_api_key("SERPAPI_API_KEY", "SerpApiGoogleSearchTool"):
             tools.append(SerpApiGoogleSearchTool())
-        elif "SERPAPI_API_KEY" not in WARNED_MISSING_KEYS:
-            print("Warning: SERPAPI_API_KEY not found. SerpApiGoogleSearchTool skipped.")
-            WARNED_MISSING_KEYS.add("SERPAPI_API_KEY")
 
     if "tool-rag-crew" in tool_ids: tools.append(RagTool())
 
@@ -80,6 +70,10 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     return tools
 
 def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websocket: WebSocket, mission_id: int) -> Dict[str, Agent]:
+    """
+    Create CrewAI Agents based on the provided configuration.
+    Injects a Quality Control (QC) Agent into the crew.
+    """
     llm = LLM(model=DEFAULT_MODEL, temperature=0.7)
 
     agents_map = {}
@@ -112,10 +106,18 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
         agents_map[a_data['id']] = agent
 
     # QC Agent Injection
+    qc_backstory = (
+        "You are a meticulous Quality Control Engineer. Your responsibility is to ensure the integrity of the codebase. "
+        "You constantly scan for bugs and errors. Whenever another agent completes a task or modifies files, you shift your attention to review their work precisely. "
+        "You never self-verify. "
+        "IMPORTANT: When checking files, ensure you use the correct file path and extension (e.g., 'requirements.txt' not 'requirementstxt'). "
+        "Double-check your tool inputs."
+    )
+
     qc_agent = Agent(
         role="Quality Control Engineer",
         goal="Constantly review the codebase for bugs and errors, and thoroughly review all modifications made by other agents.",
-        backstory="You are a meticulous Quality Control Engineer. Your responsibility is to ensure the integrity of the codebase. You constantly scan for bugs and errors. Whenever another agent completes a task or modifies files, you shift your attention to review their work precisely. You never self-verify.",
+        backstory=qc_backstory,
         tools=[DirectoryReadTool(directory='.'), FileReadTool(), WrapperPythonREPLTool()],
         llm=llm,
         callbacks=[WebSocketHandler(websocket, mission_id)],
@@ -126,6 +128,10 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
     return agents_map
 
 def create_tasks(plan: List[dict], agents_map: Dict[str, Agent], uploaded_files: List[str]) -> List[Task]:
+    """
+    Create CrewAI Tasks based on the mission plan.
+    Interleaves QC tasks between agent tasks.
+    """
     tasks = []
     qc_agent = agents_map.get('qc_agent')
 
