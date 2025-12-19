@@ -15,3 +15,7 @@ pypdf
 chromadb
 matplotlib
 seaborn
+pylint
+pytest
+greenlet
+playwright
