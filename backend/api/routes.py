@@ -5,7 +5,10 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
-from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
+from tools.rag import (
+    add_document_to_kb, list_documents, delete_document_by_source, search_documents,
+    semantic_search_with_expansion, summarize_document, get_knowledge_base_health
+)
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
 
@@ -83,6 +86,50 @@ async def search_knowledge(data: KnowledgeSearch):
     results = search_documents(data.query)
     return {"results": results}
 
+@router.post("/knowledge/search/semantic")
+async def semantic_search(data: KnowledgeSearch):
+    """Semantic search with query expansion."""
+    results = semantic_search_with_expansion(data.query)
+    return {"results": results}
+
+@router.post("/knowledge/summarize")
+async def summarize_knowledge(data: KnowledgeUpload):
+    """Automatically summarize a document."""
+    summary = summarize_document(data.text)
+    return {"summary": summary}
+
+@router.get("/knowledge/health")
+async def knowledge_health():
+    """Get knowledge base health metrics."""
+    health = get_knowledge_base_health()
+    return health
+
+@router.get("/knowledge/graph")
+async def knowledge_graph():
+    """Get knowledge graph visualization data."""
+    # Simplified knowledge graph - in production, use proper graph database
+    collection = get_collection()
+    data = collection.get(include=['metadatas', 'documents'])
+    
+    nodes = []
+    edges = []
+    source_map = {}
+    
+    for i, metadata in enumerate(data.get('metadatas', [])):
+        if metadata and 'source' in metadata:
+            source = metadata['source']
+            if source not in source_map:
+                source_map[source] = len(nodes)
+                nodes.append({"id": source, "label": source, "type": "document"})
+    
+    # Simple edge creation based on shared keywords (simplified)
+    # In production, use proper entity extraction and relationship detection
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "total_nodes": len(nodes)
+    }
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     """Handles uploading large files (PDF, CSV, Excel)"""
@@ -152,6 +199,12 @@ async def generate_plan(request: PlanRequest):
         if isinstance(data, list):
             return {"plan": data, "newAgents": [], "agentConfigs": {}, "narrative": "Legacy Plan Generated."}
 
+        # Normalize plan step IDs to strings (in case LLM returns numbers)
+        if "plan" in data and isinstance(data["plan"], list):
+            for step in data["plan"]:
+                if "id" in step and not isinstance(step["id"], str):
+                    step["id"] = f"step-{step['id']}"
+
         # Ensure agentConfigs exists
         if "agentConfigs" not in data:
             data["agentConfigs"] = {}
@@ -167,7 +220,19 @@ async def generate_plan(request: PlanRequest):
 async def list_missions():
     try:
         missions = get_missions()
-        return {"missions": missions}
+        # Serialize SQLAlchemy objects to dicts
+        missions_list = [
+            {
+                "id": m.id,
+                "goal": m.goal,
+                "status": m.status,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+                "estimated_cost": m.estimated_cost,
+                "total_tokens": m.total_tokens
+            }
+            for m in missions
+        ]
+        return {"missions": missions_list}
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -176,4 +241,13 @@ async def get_mission_details(mission_id: int):
     mission = get_mission(mission_id)
     if not mission:
         raise HTTPException(404, "Mission not found")
-    return mission
+    # Serialize SQLAlchemy object to dict
+    return {
+        "id": mission.id,
+        "goal": mission.goal,
+        "status": mission.status,
+        "created_at": mission.created_at.isoformat() if mission.created_at else None,
+        "result": mission.result,
+        "estimated_cost": mission.estimated_cost,
+        "total_tokens": mission.total_tokens
+    }

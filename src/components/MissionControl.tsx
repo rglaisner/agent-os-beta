@@ -6,14 +6,15 @@ import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // 
 
 interface MissionControlProps {
   agents: Agent[];
-  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
+  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
   onAgentsChange?: (agents: Agent[]) => void;
+  onGoalChange?: (goal: string) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent, onGoalChange }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
@@ -112,7 +113,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-          id: Date.now(),
+          id: `step-${Date.now()}`,
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -236,7 +237,10 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (
             <button
-              onClick={() => onLaunch(plan, uploadedFiles.map(f => f.path), processType)}
+              onClick={() => {
+                onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal);
+                if (onGoalChange) onGoalChange(goal);
+              }}
               disabled={isRunning}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
             >

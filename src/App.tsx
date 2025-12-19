@@ -1,10 +1,17 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Bot, Plus, Coins, Zap, Flag } from 'lucide-react';
+import { Bot, Plus, Coins, Zap, Flag, BarChart3, Calendar, Wrench, MessageSquare, Download, Bug } from 'lucide-react';
 import LiveMonitor from './components/LiveMonitor';
 import AgentCard from './components/AgentCard';
 import MissionControl from './components/MissionControl';
 import MissionHistory from './components/MissionHistory';
 import KnowledgeBase from './components/KnowledgeBase';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import SmartSuggestions from './components/SmartSuggestions';
+import CustomToolBuilder from './components/CustomToolBuilder';
+import Scheduling from './components/Scheduling';
+import CommunicationLogs from './components/CommunicationLogs';
+import ExportTools from './components/ExportTools';
+import DebuggingTools from './components/DebuggingTools';
 import { DEFAULT_AGENTS, DEFAULT_TOOLS, type Agent, type PlanStep } from './constants';
 
 interface LogEntry {
@@ -22,7 +29,9 @@ export default function AgentPlatform() {
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS.filter(a => a.type !== 'SYSTEM'));
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR' | 'KNOWLEDGE'>('SETUP');
+  const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR' | 'KNOWLEDGE' | 'ANALYTICS' | 'SCHEDULING' | 'TOOLS' | 'COMMUNICATIONS' | 'DEBUG'>('SETUP');
+  const [currentMissionId, setCurrentMissionId] = useState<number | null>(null);
+  const [missionGoal, setMissionGoal] = useState<string>('');
   const [usage, setUsage] = useState<TokenUsage>({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
   const [finalOutput, setFinalOutput] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -73,133 +82,99 @@ export default function AgentPlatform() {
     setLogs([]);
     setFinalOutput(null); // Reset final output
     setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 }); // Reset Usage
-    
-    const connectWebSocket = (): Promise<WebSocket> => {
-      return new Promise((resolve, reject) => {
-        try {
-          const ws = new WebSocket(backendUrl);
-          
-          ws.onopen = () => {
-            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
-            resolve(ws);
-          };
-          
-          ws.onerror = (error) => {
-            reject(new Error(`WebSocket connection error: ${error}`));
-          };
-          
-          // Set timeout for connection
-          setTimeout(() => {
-            if (ws.readyState !== WebSocket.OPEN) {
-              ws.close();
-              reject(new Error('WebSocket connection timeout'));
-            }
-          }, 10000); // 10 second timeout
-        } catch (e) {
-          reject(e);
-        }
-      });
-    };
-    
     try {
-        const ws = await connectWebSocket();
+        const ws = new WebSocket(backendUrl);
         wsRef.current = ws;
-        
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
+            // Extract mission ID from response if available
+            // For now, we'll track it from the mission creation
+        };
         ws.onmessage = (event) => {
+            let data;
             try {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'HUMAN_INPUT_REQUEST') {
-                    // Use a non-blocking approach - store the request and let InterventionModal handle it
-                    // The prompt() call is handled in LiveMonitor via InterventionModal
-                    setLogs(prev => [...prev, {
-                        timestamp: new Date().toISOString(),
-                        agentName: data.agentName || 'System',
-                        type: 'HUMAN_INPUT_REQUEST',
-                        content: data.content,
-                        requestId: data.requestId
-                    }]);
-                    return;
-                }
+                data = JSON.parse(event.data);
+            } catch (e) {
+                console.error("Failed to parse WebSocket message:", e);
+                return;
+            }
+            
+            if (data.type === 'ERROR') {
+                setLogs(prev => [...prev, {
+                    timestamp: new Date().toISOString(),
+                    agentName: 'System',
+                    type: 'ERROR',
+                    content: data.content || 'An error occurred'
+                }]);
+                return;
+            }
+            
+            if (data.type === 'MISSION_STARTED') {
+                setCurrentMissionId(data.mission_id);
+                return;
+            }
+            if (data.type === 'HUMAN_INPUT_REQUEST') {
+                const response = prompt(`Agent asks: ${data.content}`);
+                ws.send(JSON.stringify({ action: "HUMAN_RESPONSE", requestId: data.requestId, content: response || "None" }));
+                return;
+            }
 
-                if (data.type === 'USAGE') {
-                    setUsage(data.content);
-                    return;
-                }
+            if (data.type === 'USAGE') {
+                setUsage(data.content);
+                return;
+            }
 
-                if (data.type === 'OUTPUT' && data.agentName === 'System') {
-                    setFinalOutput(data.content);
-                    // Also log it
-                    setLogs(prev => [...prev, { timestamp: new Date().toISOString(), agentName: 'System', type: 'OUTPUT', content: data.content }]);
-                    return;
-                }
+            if (data.type === 'OUTPUT' && data.agentName === 'System') {
+                setFinalOutput(data.content);
+                // Also log it
+                setLogs(prev => [...prev, { timestamp: new Date().toISOString(), agentName: 'System', type: 'OUTPUT', content: data.content }]);
+                return;
+            }
 
-                if (data.type === 'ERROR') {
-                    setLogs(prev => [...prev, {
-                        timestamp: new Date().toISOString(),
-                        agentName: 'System',
-                        type: 'ERROR',
-                        content: data.content
-                    }]);
-                    return;
-                }
-
-                setLogs(prev => {
-                    // Streaming Logic: If STREAM, append to last log if it's also STREAM/THOUGHT from same agent
-                    if (data.type === 'STREAM') {
-                        const last = prev[prev.length - 1];
-                        if (last && (last.type === 'THOUGHT' || last.type === 'STREAM') && last.agentName === data.agentName) {
-                            return [
-                                ...prev.slice(0, -1),
-                                { ...last, content: last.content + data.content, type: 'THOUGHT' } // Keep type as THOUGHT for display
-                            ];
-                        }
-                        // Start new stream
-                        return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: 'THOUGHT', content: data.content }];
+            setLogs(prev => {
+                // Streaming Logic: If STREAM, append to last log if it's also STREAM/THOUGHT from same agent
+                if (data.type === 'STREAM') {
+                    const last = prev[prev.length - 1];
+                    if (last && (last.type === 'THOUGHT' || last.type === 'STREAM') && last.agentName === data.agentName) {
+                        return [
+                            ...prev.slice(0, -1),
+                            { ...last, content: last.content + data.content, type: 'THOUGHT' } // Keep type as THOUGHT for display
+                        ];
                     }
-                    return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: data.type, content: data.content }];
-                });
-            } catch (parseError) {
-                console.error('Failed to parse WebSocket message:', parseError);
-                setLogs(prev => [...prev, {
-                    timestamp: new Date().toISOString(),
-                    agentName: 'System',
-                    type: 'ERROR',
-                    content: `Failed to parse message: ${parseError}`
-                }]);
-            }
+                    // Start new stream
+                    return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: 'THOUGHT', content: data.content }];
+                }
+                return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: data.type, content: data.content }];
+            });
         };
-        
-        ws.onclose = (event) => {
-            setIsRunning(false);
-            if (event.code !== 1000) { // Not a normal closure
-                setLogs(prev => [...prev, {
-                    timestamp: new Date().toISOString(),
-                    agentName: 'System',
-                    type: 'ERROR',
-                    content: `WebSocket closed unexpectedly (code: ${event.code})`
-                }]);
-            }
-        };
-        
         ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
+            console.error("WebSocket Error:", error);
             setLogs(prev => [...prev, {
                 timestamp: new Date().toISOString(),
                 agentName: 'System',
                 type: 'ERROR',
-                content: 'WebSocket connection error occurred'
+                content: 'Connection Error. Is the backend running?'
+            }]);
+            setIsRunning(false);
+        };
+        ws.onclose = () => {
+            setIsRunning(false);
+            setLogs(prev => [...prev, {
+                timestamp: new Date().toISOString(),
+                agentName: 'System',
+                type: 'SYSTEM',
+                content: 'Connection closed.'
             }]);
         };
     } catch (e) {
-        console.error('Failed to establish WebSocket connection:', e);
+        console.error(e);
+        setIsRunning(false);
         setLogs(prev => [...prev, {
             timestamp: new Date().toISOString(),
             agentName: 'System',
             type: 'ERROR',
-            content: `Failed to connect: ${e instanceof Error ? e.message : String(e)}`
+            content: `Failed to connect: ${e instanceof Error ? e.message : 'Unknown error'}`
         }]);
-        setIsRunning(false);
     }
   };
 
@@ -212,10 +187,15 @@ export default function AgentPlatform() {
             </div>
             <h1 className="font-bold text-lg tracking-tight">AgentOS <span className="text-xs font-normal text-slate-500 ml-1">v0.5</span></h1>
         </div>
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
-            <button onClick={() => setActiveTab('SETUP')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'SETUP' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Setup</button>
-            <button onClick={() => setActiveTab('MONITOR')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'MONITOR' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Monitor</button>
-            <button onClick={() => setActiveTab('KNOWLEDGE')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'KNOWLEDGE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Knowledge</button>
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 overflow-x-auto">
+            <button onClick={() => setActiveTab('SETUP')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'SETUP' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Setup</button>
+            <button onClick={() => setActiveTab('MONITOR')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'MONITOR' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Monitor</button>
+            <button onClick={() => setActiveTab('KNOWLEDGE')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'KNOWLEDGE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Knowledge</button>
+            <button onClick={() => setActiveTab('ANALYTICS')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'ANALYTICS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><BarChart3 className="w-3 h-3 inline mr-1" />Analytics</button>
+            <button onClick={() => setActiveTab('SCHEDULING')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'SCHEDULING' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Calendar className="w-3 h-3 inline mr-1" />Schedule</button>
+            <button onClick={() => setActiveTab('TOOLS')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'TOOLS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Wrench className="w-3 h-3 inline mr-1" />Tools</button>
+            <button onClick={() => setActiveTab('COMMUNICATIONS')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'COMMUNICATIONS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><MessageSquare className="w-3 h-3 inline mr-1" />Comms</button>
+            <button onClick={() => setActiveTab('DEBUG')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${activeTab === 'DEBUG' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Bug className="w-3 h-3 inline mr-1" />Debug</button>
         </div>
       </header>
       <main className="container mx-auto p-4 flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
@@ -230,7 +210,23 @@ export default function AgentPlatform() {
         )}
         <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-y-auto ${activeTab === 'SETUP' ? 'flex' : 'hidden'}`}>
-                <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} onUpdateAgent={updateAgent} />
+                <SmartSuggestions
+                  backendUrl={backendUrl}
+                  goal={missionGoal || 'Enter a mission goal to get AI-powered suggestions'}
+                  availableAgents={agents}
+                  availableTools={DEFAULT_TOOLS.map(t => t.id)}
+                />
+                <MissionControl
+                  agents={agents}
+                  onLaunch={(plan, files, processType, goal) => {
+                    if (goal) setMissionGoal(goal);
+                    runOrchestratedSimulation(plan, files, processType);
+                  }}
+                  onGoalChange={setMissionGoal}
+                  isRunning={isRunning}
+                  onAddAgents={addNewAgents}
+                  onUpdateAgent={updateAgent}
+                />
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'MONITOR' ? 'flex' : 'hidden'}`}>
                 <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm">
@@ -254,6 +250,26 @@ export default function AgentPlatform() {
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'KNOWLEDGE' ? 'flex' : 'hidden'}`}>
                 <KnowledgeBase backendUrl={backendUrl} />
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'ANALYTICS' ? 'flex' : 'hidden'}`}>
+                <AnalyticsDashboard backendUrl={backendUrl} />
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'SCHEDULING' ? 'flex' : 'hidden'}`}>
+                <Scheduling backendUrl={backendUrl} />
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'TOOLS' ? 'flex' : 'hidden'}`}>
+                <CustomToolBuilder backendUrl={backendUrl} />
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'COMMUNICATIONS' ? 'flex' : 'hidden'}`}>
+                <CommunicationLogs backendUrl={backendUrl} missionId={currentMissionId || undefined} />
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'DEBUG' ? 'flex' : 'hidden'}`}>
+                <DebuggingTools logs={logs} isRunning={isRunning} onPause={stopSimulation} onResume={() => {}} onStep={() => {}} />
+                {currentMissionId && (
+                  <div className="mt-4">
+                    <ExportTools backendUrl={backendUrl} missionId={currentMissionId} />
+                  </div>
+                )}
             </div>
         </div>
       </main>
