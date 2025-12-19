@@ -17,8 +17,13 @@ from tools.plotting import DataVisualizationTool
 from tools.custom_tool_manager import ToolCreatorTool, load_custom_tools
 
 # Ensure OpenAI Key is set to avoid validation errors for tools that default to it
+# This is a known workaround for CrewAI when using other LLM providers for everything else.
 if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = "NA"
+
+# Configuration
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini/gemini-2.0-flash")
+MANAGER_MODEL = os.getenv("MANAGER_MODEL", "gemini/gemini-2.5-pro")
 
 def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, file_paths: List[str]) -> List[Any]:
     tools = []
@@ -72,7 +77,7 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     return tools
 
 def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websocket: WebSocket, mission_id: int) -> Dict[str, Agent]:
-    llm = LLM(model="gemini/gemini-2.0-flash", temperature=0.7)
+    llm = LLM(model=DEFAULT_MODEL, temperature=0.7)
 
     agents_map = {}
     for a_data in agent_data_list:

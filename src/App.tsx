@@ -5,111 +5,15 @@ import AgentCard from './components/AgentCard';
 import MissionControl from './components/MissionControl';
 import MissionHistory from './components/MissionHistory';
 import KnowledgeBase from './components/KnowledgeBase';
+import { DEFAULT_AGENTS, DEFAULT_TOOLS, type Agent } from './constants';
 
-// --- TYPES ---
-interface Tool { id: string; name: string; description: string; }
-interface Agent {
-    id: string;
-    role: string;
-    goal: string;
-    backstory: string;
-    toolIds: string[];
-    humanInput: boolean;
-    reasoning?: boolean;
-    max_reasoning_attempts?: number;
-    max_iter?: number;
-}
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
 interface PlanStep { id: string; agentId: string; instruction: string; trainingIterations?: number; }
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
-// --- RESTORED DEFAULTS ---
-const DEFAULT_TOOLS: Tool[] = [
-  { id: 'tool-search', name: 'Google Search', description: 'Search the web.' },
-  { id: 'tool-scrape', name: 'Website Scraper', description: 'Read website content.' },
-  { id: 'tool-finance', name: 'Stock Data', description: 'Yahoo Finance prices.' },
-  { id: 'tool-python', name: 'Python Calculator', description: 'Run Python code & Analyze Data.' },
-  { id: 'tool-rag', name: 'Knowledge Base', description: 'Search long-term memory.' },
-  { id: 'tool-plot', name: 'Data Visualizer', description: 'Create Charts & Graphs.' },
-  { id: 'tool-builder', name: 'Tool Builder', description: 'Create new tools from code.' },
-  { id: 'tool-csv', name: 'CSV Search', description: 'Search CSV content.' },
-  { id: 'tool-docx', name: 'DOCX Search', description: 'Search DOCX content.' },
-  { id: 'tool-json', name: 'JSON Search', description: 'Search JSON content.' },
-  { id: 'tool-brave', name: 'Brave Search', description: 'Search via Brave API.' },
-  { id: 'tool-serpapi', name: 'Google SerpApi', description: 'Google Search via SerpApi.' },
-  { id: 'tool-rag-crew', name: 'CrewAI RAG', description: 'CrewAI native RAG tool.' },
-];
-
-const DEFAULT_AGENTS: Agent[] = [
-  {
-    id: 'ux-critic',
-    role: 'Critical User Experience Tester',
-    goal: 'Rigorously test the frontend, identify any UI/UX flaws, and formally document complaints.',
-    backstory: 'You are a demanding user with high standards. You have zero patience for crashes, confusing navigation, or poor aesthetics. Bad design physically repulses you. You relentlessly test the application, and when you find faults, you document them with scathing precision.',
-    toolIds: [],
-    humanInput: false
-  },
-  {
-    id: 'ux-obsessive',
-    role: 'Perfectionist Frontend Designer',
-    goal: 'Resolve all user complaints with exceptional creativity and technical precision, surpassing initial expectations.',
-    backstory: 'You live for user satisfaction. The thought of a disappointed user fuels your boundless energy. You do not just patch bugs; you reimagine the experience. You take every complaint as a personal challenge to deliver a UI that is not just functional, but delightful and awe-inspiring.',
-    toolIds: ['tool-plot'],
-    humanInput: false
-  },
-  {
-    id: 'agent-job-mapper',
-    role: 'Enterprise Job Architecture Mapper',
-    goal: 'Analyze enterprise-wide data files to suggest improvements and alignments serving 2 goals: alignment following business imperative and standardization using lightcast.io taxonomies.',
-    backstory: 'You are a top strategist with 20 years of experience in leading and conceptualizing large enterprise transformations. You have a passion for HR-related transformation and understand that it must be anticipated like business disruption.',
-    toolIds: ['tool-csv', 'tool-docx', 'tool-json'],
-    humanInput: false
-  },
-  {
-    id: 'agent-role-mapper',
-    role: 'Role to Skill Mapper',
-    goal: 'Map out skill profiles from role information to power skills-enabled use-cases.',
-    backstory: 'You are a visionary with business and strategy acumen in HR. You understand the HR perspective to Skills as observing money in a bank, and the business perspective as applying that money to generate value.',
-    toolIds: ['tool-brave', 'tool-csv', 'tool-json', 'tool-rag-crew', 'tool-serpapi'],
-    humanInput: false
-  },
-  {
-    id: 'agent-xls-guru',
-    role: 'XLS File Guru',
-    goal: 'Read xls content and get other agents to understand all possible subtility from the content reading. You turn the content into something that makes sense.',
-    backstory: 'You are the spirit leader of the church of XLS. And you understand it all. And you can make sense of the content. Always. It has been your life over the past 50 years.',
-    toolIds: ['tool-brave', 'tool-csv'],
-    humanInput: false
-  },
-  {
-    id: 'agent-data-master',
-    role: 'Data Analyst',
-    goal: 'Perform deep analysis of large datasets',
-    backstory: 'Specialized in big data analysis and pattern recognition',
-    toolIds: ['tool-python'],
-    humanInput: false
-  },
-  {
-    id: 'agent-qc-eng',
-    role: 'Software Quality Control Engineer',
-    goal: 'Create Perfect code, by analyzing the code that is given for errors',
-    backstory: 'You are a software engineer that specializes in checking code for errors. You have an eye for detail and a knack for finding hidden bugs. You check for missing imports, variable declarations, mismatched brackets and syntax errors. You also check for security vulnerabilities, and logic errors',
-    toolIds: ['tool-python'],
-    humanInput: false
-  },
-  {
-    id: 'agent-chief-qc',
-    role: 'Chief Quality Engineering',
-    goal: 'Ensure that the code does the job that it is supposed to do',
-    backstory: 'You feel that programmers always do only half the job, so you are super dedicate to make high quality code.',
-    toolIds: ['tool-python'],
-    humanInput: false
-  }
-];
-
 export default function AgentPlatform() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws';
-  const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
+  const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS.filter(a => a.type !== 'SYSTEM'));
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR' | 'KNOWLEDGE'>('SETUP');
@@ -117,7 +21,7 @@ export default function AgentPlatform() {
   const wsRef = useRef<WebSocket | null>(null);
 
   const addAgent = () => {
-    setAgents(prev => [...prev, { id: `agent-${Date.now()}`, role: 'New Agent', goal: 'Help', backstory: 'I help.', toolIds: [], humanInput: false }]);
+    setAgents(prev => [...prev, { id: `agent-${Date.now()}`, role: 'New Agent', goal: 'Help', backstory: 'I help.', toolIds: [], humanInput: false, name: 'New Agent', type: 'CUSTOM' }]);
   };
 
   const addNewAgents = useCallback((newAgents: Agent[]) => {
