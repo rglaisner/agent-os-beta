@@ -28,12 +28,9 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
         return res.json();
       })
       .then(data => {
-        if (Array.isArray(data)) {
-            setMissions(data);
-        } else {
-            console.warn("Mission history data is not an array:", data);
-            setMissions([]);
-        }
+        // Backend returns {missions: [...]}
+        const missionsList = Array.isArray(data) ? data : (data.missions || []);
+        setMissions(missionsList);
         setLoading(false);
       })
       .catch(err => {

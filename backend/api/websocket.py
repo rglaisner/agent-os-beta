@@ -58,7 +58,15 @@ async def websocket_handler(websocket: WebSocket):
                      continue
 
                 try:
-                    mission_id = create_mission(payload['plan'][0]['instruction'][:50])
+                    # Extract goal from plan or use default
+                    goal_text = payload.get('goal', '')
+                    if not goal_text and payload.get('plan') and len(payload['plan']) > 0:
+                        goal_text = payload['plan'][0].get('instruction', 'Mission')[:100]
+                    if not goal_text:
+                        goal_text = 'Mission'
+                    mission_id = create_mission(goal_text)
+                    # Send mission ID to frontend
+                    await websocket.send_json({"type": "MISSION_STARTED", "mission_id": mission_id, "goal": goal_text})
                 except Exception as e:
                     await websocket.send_json({"type": "ERROR", "content": f"Database Error: {str(e)}"})
                     continue

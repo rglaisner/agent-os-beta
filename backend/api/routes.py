@@ -5,7 +5,10 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
-from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents, get_collection
+from tools.rag import (
+    add_document_to_kb, list_documents, delete_document_by_source, search_documents,
+    semantic_search_with_expansion, summarize_document, get_knowledge_base_health, get_collection
+)
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
 
@@ -83,25 +86,44 @@ async def search_knowledge(data: KnowledgeSearch):
     results = search_documents(data.query)
     return {"results": results}
 
+@router.post("/knowledge/search/semantic")
+async def semantic_search(data: KnowledgeSearch):
+    """Semantic search with query expansion."""
+    results = semantic_search_with_expansion(data.query)
+    return {"results": results}
+
+@router.post("/knowledge/summarize")
+async def summarize_knowledge(data: KnowledgeUpload):
+    """Automatically summarize a document."""
+    summary = summarize_document(data.text)
+    return {"summary": summary}
+
+@router.get("/knowledge/health")
+async def knowledge_health():
+    """Get knowledge base health metrics."""
+    health = get_knowledge_base_health()
+    return health
+
 @router.get("/knowledge/graph")
 async def knowledge_graph():
-    """Returns knowledge base graph structure for visualization"""
+    """Get knowledge graph visualization data."""
     try:
         collection = get_collection()
         # Get all documents with their metadata to build a graph
-        results = collection.get()
+        data = collection.get(include=['metadatas', 'documents', 'ids'])
         
-        # Build a simple graph structure
         nodes = []
         edges = []
+        source_map = {}
         
-        if results and results.get('ids'):
-            for i, doc_id in enumerate(results['ids']):
-                metadata = results.get('metadatas', [{}])[i] if results.get('metadatas') else {}
-                source = metadata.get('source', 'Unknown')
+        if data and data.get('ids'):
+            for i, doc_id in enumerate(data['ids']):
+                metadata = data.get('metadatas', [{}])[i] if data.get('metadatas') else {}
+                source = metadata.get('source', 'Unknown') if metadata else 'Unknown'
                 
                 # Create node for each unique source
-                if not any(n['id'] == source for n in nodes):
+                if source not in source_map:
+                    source_map[source] = len(nodes)
                     nodes.append({
                         "id": source,
                         "label": source,
@@ -125,7 +147,8 @@ async def knowledge_graph():
         return {
             "nodes": nodes,
             "edges": edges,
-            "total_documents": len(set(n['id'] for n in nodes if n.get('type') == 'document'))
+            "total_documents": len(source_map),
+            "total_nodes": len(nodes)
         }
     except Exception as e:
         raise HTTPException(500, str(e))
@@ -199,6 +222,12 @@ async def generate_plan(request: PlanRequest):
         if isinstance(data, list):
             return {"plan": data, "newAgents": [], "agentConfigs": {}, "narrative": "Legacy Plan Generated."}
 
+        # Normalize plan step IDs to strings (in case LLM returns numbers)
+        if "plan" in data and isinstance(data["plan"], list):
+            for step in data["plan"]:
+                if "id" in step and not isinstance(step["id"], str):
+                    step["id"] = f"step-{step['id']}"
+
         # Ensure agentConfigs exists
         if "agentConfigs" not in data:
             data["agentConfigs"] = {}
@@ -214,7 +243,19 @@ async def generate_plan(request: PlanRequest):
 async def list_missions():
     try:
         missions = get_missions()
-        return {"missions": missions}
+        # Serialize SQLAlchemy objects to dicts
+        missions_list = [
+            {
+                "id": m.id,
+                "goal": m.goal,
+                "status": m.status,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+                "estimated_cost": m.estimated_cost,
+                "total_tokens": m.total_tokens
+            }
+            for m in missions
+        ]
+        return {"missions": missions_list}
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -223,4 +264,13 @@ async def get_mission_details(mission_id: int):
     mission = get_mission(mission_id)
     if not mission:
         raise HTTPException(404, "Mission not found")
-    return mission
+    # Serialize SQLAlchemy object to dict
+    return {
+        "id": mission.id,
+        "goal": mission.goal,
+        "status": mission.status,
+        "created_at": mission.created_at.isoformat() if mission.created_at else None,
+        "result": mission.result,
+        "estimated_cost": mission.estimated_cost,
+        "total_tokens": mission.total_tokens
+    }
