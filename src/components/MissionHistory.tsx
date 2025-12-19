@@ -23,13 +23,22 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
 
   useEffect(() => {
     fetch(`${httpUrl}/api/missions`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
       .then(data => {
-        setMissions(data);
+        if (Array.isArray(data)) {
+            setMissions(data);
+        } else {
+            console.warn("Mission history data is not an array:", data);
+            setMissions([]);
+        }
         setLoading(false);
       })
       .catch(err => {
         console.error("Failed to fetch history:", err);
+        setMissions([]);
         setLoading(false);
       });
   }, [httpUrl]);
