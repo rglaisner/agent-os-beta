@@ -5,7 +5,7 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
-from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
+from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents, get_collection
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
 
@@ -82,6 +82,53 @@ async def delete_knowledge(source_name: str):
 async def search_knowledge(data: KnowledgeSearch):
     results = search_documents(data.query)
     return {"results": results}
+
+@router.get("/knowledge/graph")
+async def knowledge_graph():
+    """Returns knowledge base graph structure for visualization"""
+    try:
+        collection = get_collection()
+        # Get all documents with their metadata to build a graph
+        results = collection.get()
+        
+        # Build a simple graph structure
+        nodes = []
+        edges = []
+        
+        if results and results.get('ids'):
+            for i, doc_id in enumerate(results['ids']):
+                metadata = results.get('metadatas', [{}])[i] if results.get('metadatas') else {}
+                source = metadata.get('source', 'Unknown')
+                
+                # Create node for each unique source
+                if not any(n['id'] == source for n in nodes):
+                    nodes.append({
+                        "id": source,
+                        "label": source,
+                        "type": "document"
+                    })
+                
+                # Create node for document chunk
+                nodes.append({
+                    "id": doc_id,
+                    "label": f"Chunk {i+1}",
+                    "type": "chunk",
+                    "source": source
+                })
+                
+                # Create edge from source to chunk
+                edges.append({
+                    "from": source,
+                    "to": doc_id
+                })
+        
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "total_documents": len(set(n['id'] for n in nodes if n.get('type') == 'document'))
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):

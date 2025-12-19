@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
+import SmartAgentSuggestion from './SmartAgentSuggestion';
 import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // Import shared types
 
 interface MissionControlProps {
@@ -26,6 +27,9 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   // Agent Editor State
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  
+  // Smart Agent Suggestion State
+  const [pendingSuggestedAgents, setPendingSuggestedAgents] = useState<Agent[]>([]);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL 
     ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
@@ -77,9 +81,25 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
       if (data.newAgents && data.newAgents.length > 0) {
           // Filter out existing IDs to avoid duplicates if re-running
           const existingIds = new Set(agents.map(a => a.id));
-          const uniqueNewAgents = data.newAgents.filter(a => !existingIds.has(a.id));
+          const uniqueNewAgents = data.newAgents
+              .filter(a => !existingIds.has(a.id))
+              .map(a => ({
+                  ...a,
+                  // Ensure all required fields are present
+                  id: a.id || `suggested-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  role: a.role || 'Agent',
+                  goal: a.goal || '',
+                  backstory: a.backstory || '',
+                  toolIds: a.toolIds || [],
+                  type: a.type || 'SUGGESTED',
+                  name: a.name || a.role,
+                  avatar: a.avatar || '🤖',
+                  color: a.color || 'bg-emerald-500',
+                  humanInput: a.humanInput || false
+              }));
           if (uniqueNewAgents.length > 0) {
-              onAddAgents(uniqueNewAgents);
+              // Show suggestion box instead of auto-adding
+              setPendingSuggestedAgents(uniqueNewAgents);
           }
       }
 
@@ -131,7 +151,21 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           onUpdateAgent(updatedAgent.id, updatedAgent);
       } else {
           // Should not happen in edit mode usually
-          onAddAgents([updatedAgent]);
+          // Ensure all required fields are present before adding
+          const agentToAdd: Agent = {
+              ...updatedAgent,
+              id: updatedAgent.id || `custom-${Date.now()}`,
+              role: updatedAgent.role || 'Agent',
+              goal: updatedAgent.goal || '',
+              backstory: updatedAgent.backstory || '',
+              toolIds: updatedAgent.toolIds || []
+          };
+          try {
+              onAddAgents([agentToAdd]);
+          } catch (err) {
+              console.error('Error adding agent:', err);
+              setError(`Failed to add agent: ${err instanceof Error ? err.message : String(err)}`);
+          }
       }
       setIsModified(true);
   };
@@ -166,6 +200,35 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
         </div>
         {error && <p className="text-red-500 text-sm mt-3 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
       </div>
+
+      {/* Smart Agent Suggestion Box */}
+      {pendingSuggestedAgents.length > 0 && (
+        <SmartAgentSuggestion
+          suggestedAgents={pendingSuggestedAgents}
+          onAcceptAll={() => {
+            try {
+              onAddAgents(pendingSuggestedAgents);
+              setPendingSuggestedAgents([]);
+            } catch (err) {
+              console.error('Error accepting suggested agents:', err);
+              setError(`Failed to accept suggested agents: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }}
+          onRejectAll={() => {
+            setPendingSuggestedAgents([]);
+          }}
+          onReview={() => {
+            // For now, just accept all on review - can be enhanced to show a modal
+            try {
+              onAddAgents(pendingSuggestedAgents);
+              setPendingSuggestedAgents([]);
+            } catch (err) {
+              console.error('Error accepting suggested agents:', err);
+              setError(`Failed to accept suggested agents: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }}
+        />
+      )}
 
       <div className="flex gap-4 shrink-0">
         {/* FILE UPLOAD */}
