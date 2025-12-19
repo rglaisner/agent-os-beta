@@ -16,35 +16,13 @@ import {
   StopCircle,
   LifeBuoy,
   UserPlus,
-  Coins, // Icon for cost
-  Zap // Icon for tokens
+  Coins,
+  Zap,
+  Plus
 } from 'lucide-react';
+import { type Agent, type Tool, DEFAULT_AGENTS, DEFAULT_TOOLS } from './constants';
 
 // --- Types & Interfaces ---
-
-interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  pythonClass?: string;
-  pythonImport?: string;
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  role: string;
-  goal: string;
-  backstory: string;
-  avatar: string;
-  color: string;
-  toolIds?: string[];
-  humanInput?: boolean;
-  type: 'ADK_SAMPLE' | 'CUSTOM' | 'SUGGESTED' | 'SYSTEM';
-  reasoning?: boolean;
-  max_reasoning_attempts?: number;
-  max_iter?: number;
-}
 
 interface LogEntry {
   id: string;
@@ -83,244 +61,6 @@ interface TokenUsage {
     outputTokens: number;
     totalCost: number;
 }
-
-// --- Agents Data ---
-
-const DEFAULT_TOOLS: Tool[] = [
-  {
-    id: 'tool-search',
-    name: 'Google Search',
-    description: 'Search the web for information.',
-    pythonClass: 'SerperDevTool',
-    pythonImport: 'from crewai_tools import SerperDevTool'
-  },
-  {
-    id: 'tool-scrape',
-    name: 'Website Scraper',
-    description: 'Read and extract text from any website URL.',
-    pythonClass: 'ScrapeWebsiteTool',
-    pythonImport: 'from crewai_tools import ScrapeWebsiteTool'
-  },
-  {
-    id: 'tool-youtube',
-    name: 'YouTube Search',
-    description: 'Search for videos and read captions.',
-    pythonClass: 'YoutubeChannelSearchTool',
-    pythonImport: 'from crewai_tools import YoutubeChannelSearchTool'
-  },
-  {
-    id: 'tool-file-read',
-    name: 'File Reader',
-    description: 'Read local files (System Tool).',
-    pythonClass: 'FileReadTool',
-    pythonImport: 'from crewai_tools import FileReadTool'
-  },
-  {
-    id: 'tool-csv',
-    name: 'CSV Search',
-    description: 'Search CSV content.',
-    pythonClass: 'CSVSearchTool',
-    pythonImport: 'from crewai_tools import CSVSearchTool'
-  },
-  {
-    id: 'tool-docx',
-    name: 'DOCX Search',
-    description: 'Search DOCX content.',
-    pythonClass: 'DOCXSearchTool',
-    pythonImport: 'from crewai_tools import DOCXSearchTool'
-  },
-  {
-    id: 'tool-json',
-    name: 'JSON Search',
-    description: 'Search JSON content.',
-    pythonClass: 'JSONSearchTool',
-    pythonImport: 'from crewai_tools import JSONSearchTool'
-  },
-  {
-    id: 'tool-brave',
-    name: 'Brave Search',
-    description: 'Search via Brave API.',
-    pythonClass: 'BraveSearchTool',
-    pythonImport: 'from crewai_tools import BraveSearchTool'
-  },
-  {
-    id: 'tool-serpapi',
-    name: 'Google SerpApi',
-    description: 'Google Search via SerpApi.',
-    pythonClass: 'SerpApiGoogleSearchTool',
-    pythonImport: 'from crewai_tools import SerpApiGoogleSearchTool'
-  },
-  {
-    id: 'tool-rag-crew',
-    name: 'CrewAI RAG',
-    description: 'CrewAI native RAG tool.',
-    pythonClass: 'RagTool',
-    pythonImport: 'from crewai_tools import RagTool'
-  }
-];
-
-const DEFAULT_AGENTS: Agent[] = [
-  {
-    id: 'sys-manager',
-    name: 'The Boss',
-    role: 'Orchestrator',
-    goal: 'Plan mission execution and assign tasks to the most suitable agents.',
-    backstory: 'You are an expert Project Manager. You break complex goals into atomic steps.',
-    avatar: '👔',
-    color: 'bg-slate-800',
-    type: 'SYSTEM'
-  },
-  {
-    id: 'ux-critic',
-    name: 'UX Critic',
-    role: 'Critical User Experience Tester',
-    goal: 'Rigorously test the frontend, identify any UI/UX flaws, and formally document complaints.',
-    backstory: 'You are a demanding user with high standards. You have zero patience for crashes, confusing navigation, or poor aesthetics. Bad design physically repulses you. You relentlessly test the application, and when you find faults, you document them with scathing precision.',
-    avatar: '🧐',
-    color: 'bg-red-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'ux-obsessive',
-    name: 'UX Obsessive',
-    role: 'Perfectionist Frontend Designer',
-    goal: 'Resolve all user complaints with exceptional creativity and technical precision, surpassing initial expectations.',
-    backstory: 'You live for user satisfaction. The thought of a disappointed user fuels your boundless energy. You do not just patch bugs; you reimagine the experience. You take every complaint as a personal challenge to deliver a UI that is not just functional, but delightful and awe-inspiring.',
-    avatar: '✨',
-    color: 'bg-fuchsia-600',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'agent-job-mapper',
-    name: 'Job Mapper',
-    role: 'Enterprise Job Architecture Mapper',
-    goal: 'Analyze enterprise-wide data files to suggest improvements and alignments serving 2 goals: alignment following business imperative and standardization using lightcast.io taxonomies.',
-    backstory: 'You are a top strategist with 20 years of experience in leading and conceptualizing large enterprise transformations. You have a passion for HR-related transformation and understand that it must be anticipated like business disruption.',
-    toolIds: ['tool-csv', 'tool-docx', 'tool-json'],
-    avatar: '📊',
-    color: 'bg-blue-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'agent-role-mapper',
-    name: 'Role Mapper',
-    role: 'Role to Skill Mapper',
-    goal: 'Map out skill profiles from role information to power skills-enabled use-cases.',
-    backstory: 'You are a visionary with business and strategy acumen in HR. You understand the HR perspective to Skills as observing money in a bank, and the business perspective as applying that money to generate value.',
-    toolIds: ['tool-brave', 'tool-csv', 'tool-json', 'tool-rag-crew', 'tool-serpapi'],
-    avatar: '🎯',
-    color: 'bg-purple-600',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'agent-xls-guru',
-    name: 'XLS Guru',
-    role: 'XLS File Guru',
-    goal: 'Read xls content and get other agents to understand all possible subtility from the content reading. You turn the content into something that makes sense.',
-    backstory: 'You are the spirit leader of the church of XLS. And you understand it all. And you can make sense of the content. Always. It has been your life over the past 50 years.',
-    toolIds: ['tool-brave', 'tool-csv'],
-    avatar: '📑',
-    color: 'bg-green-600',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'agent-data-master',
-    name: 'Data Master',
-    role: 'Data Analyst',
-    goal: 'Perform deep analysis of large datasets',
-    backstory: 'Specialized in big data analysis and pattern recognition',
-    toolIds: ['tool-python'],
-    avatar: '📉',
-    color: 'bg-indigo-600',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'agent-qc-eng',
-    name: 'QC Engineer',
-    role: 'Software Quality Control Engineer',
-    goal: 'Create Perfect code, by analyzing the code that is given for errors',
-    backstory: 'You are a software engineer that specializes in checking code for errors. You have an eye for detail and a knack for finding hidden bugs. You check for missing imports, variable declarations, mismatched brackets and syntax errors. You also check for security vulnerabilities, and logic errors',
-    toolIds: ['tool-python'],
-    avatar: '🛠️',
-    color: 'bg-orange-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'agent-chief-qc',
-    name: 'Chief QC',
-    role: 'Chief Quality Engineering',
-    goal: 'Ensure that the code does the job that it is supposed to do',
-    backstory: 'You feel that programmers always do only half the job, so you are super dedicate to make high quality code.',
-    toolIds: ['tool-python'],
-    avatar: '🛡️',
-    color: 'bg-red-700',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'spec-ui',
-    name: 'UI Architect',
-    role: 'Frontend Designer',
-    goal: 'Create stunning HTML/Tailwind interfaces. Output raw HTML code blocks.',
-    backstory: 'You are a pixel-perfect designer. You output code ready to render.',
-    avatar: '🎨',
-    color: 'bg-pink-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'spec-vector',
-    name: 'Vector Artist',
-    role: 'SVG Illustrator',
-    goal: 'Create inline SVG graphics for logos, icons, and diagrams.',
-    backstory: 'You draw with code. You create scalable vector graphics.',
-    avatar: '📐',
-    color: 'bg-orange-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'adk-writer',
-    name: 'Blog Smith',
-    role: 'Content Writer',
-    goal: 'Write engaging, SEO-optimized blog posts.',
-    backstory: 'A creative writer who knows how to hook a reader in the first sentence.',
-    avatar: '✍️',
-    color: 'bg-purple-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'adk-fomc',
-    name: 'Fed Watcher',
-    role: 'FOMC Researcher',
-    goal: 'Analyze Federal Reserve minutes and economic policy.',
-    backstory: 'Specialized in macroeconomics and central bank policy analysis.',
-    avatar: '🏦',
-    color: 'bg-slate-700',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'adk-data-sci',
-    name: 'Data Scientist',
-    role: 'Data Scientist',
-    goal: 'Extract insights from raw data using ML and statistical analysis.',
-    backstory: 'You turn raw numbers into actionable business intelligence.',
-    avatar: '🔬',
-    color: 'bg-indigo-500',
-    type: 'ADK_SAMPLE'
-  },
-  {
-    id: 'adk-fullstack',
-    name: 'Dev Guru',
-    role: 'Fullstack Engineer',
-    goal: 'Write robust, clean code.',
-    backstory: 'A master of the full stack.',
-    avatar: '💻',
-    color: 'bg-blue-600',
-    type: 'ADK_SAMPLE'
-  }
-];
-
-// --- Gemini API Helper (Hardcoded Key) ---
-
-
 
 // --- Components ---
 
@@ -396,7 +136,7 @@ const AgentLab = ({ agents, setAgents }: { agents: Agent[], setAgents: (agents: 
                  <div className="flex justify-end gap-2">
                      <button onClick={() => setIsEditing(false)} className="px-3 py-1 text-slate-400 hover:text-white">Cancel</button>
                      <button onClick={() => {
-                         const newAgent = { ...currentAgent, id: `custom-${Date.now()}`, type: 'CUSTOM', color: 'bg-indigo-500', avatar: '🤖' } as Agent;
+                         const newAgent = { ...currentAgent, id: `custom-${Date.now()}`, type: 'CUSTOM', color: 'bg-indigo-500', avatar: '🤖', toolIds: [] } as Agent;
                          const updatedAgents = [...agents, newAgent];
                          setAgents(updatedAgents);
                          setIsEditing(false);
@@ -410,10 +150,10 @@ const AgentLab = ({ agents, setAgents }: { agents: Agent[], setAgents: (agents: 
                         <div className="flex justify-between items-start">
                             <span className="text-2xl">{agent.avatar || '🤖'}</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded text-slate-300 font-bold uppercase ${agent.type === 'SUGGESTED' ? 'bg-emerald-700' : 'bg-slate-700'}`}>
-                                {agent.type}
+                                {agent.type || 'CUSTOM'}
                             </span>
                         </div>
-                        <div className="font-bold mt-2 text-slate-900 dark:text-white">{agent.name}</div>
+                        <div className="font-bold mt-2 text-slate-900 dark:text-white">{agent.name || agent.role}</div>
                         <div className="text-xs text-indigo-500 dark:text-indigo-400">{agent.role}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">{agent.goal}</div>
                         {agent.type === 'SUGGESTED' && (
@@ -438,6 +178,10 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const backendUrl = import.meta.env.VITE_BACKEND_URL
+    ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
+    : 'http://localhost:8000';
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -450,69 +194,47 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
 
   const generatePlan = async () => {
     setIsPlanning(true);
-    const agentList = Array.isArray(agents) ? agents.filter(a => a.type !== 'SYSTEM').map(a => `ID: ${a.id} | Name: ${a.name} | Role: ${a.role}`).join('\n') : '';
-    const contextStr = fileContent ? `\nCONTEXT FILE (${fileName}):\n${fileContent.substring(0,1000)}...` : '';
-
-    // Updated Prompt to explicitly request new agents if needed
-    const prompt = `
-      GOAL: "${goal}"
-      ${contextStr}
-      
-      EXISTING AGENTS:
-      ${agentList}
-      
-      INSTRUCTIONS:
-      1. Act as "The Boss" (Manager).
-      2. Analyze the goal. If the existing agents are insufficient (e.g., missing specific skills like Legal, Medical, Poetry, etc.), CREATE NEW AGENTS.
-      3. Create a linear execution plan.
-      4. Assign steps to either existing agents OR the new agents you created.
-      
-      RETURN STRICT JSON:
-      {
-        "suggestedNewAgents": [
-           { "name": "Agent Name", "role": "Role", "goal": "Goal", "backstory": "Backstory", "avatar": "Emoji" }
-        ],
-        "steps": [
-          { "id": "1", "agentId": "agent_id OR new_agent_name", "instruction": "Task..." }
-        ],
-        "explanation": "Why this flow?"
-      }
-    `;
-
+    // Use the backend to generate the plan instead of client-side key
     try {
-      const res = await callGemini(prompt, "You are a Project Manager. Return JSON.", true);
-      const parsed = JSON.parse(res);
-      
+      const response = await fetch(`${backendUrl}/api/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal, agents, process_type: processType })
+      });
+
+      if (!response.ok) throw new Error('Backend failed');
+      const data = await response.json();
+
       let currentAgents = [...agents];
 
-      // Logic to add new agents
-      if (parsed.suggestedNewAgents && parsed.suggestedNewAgents.length > 0) {
-          const newAgents = parsed.suggestedNewAgents.map((a: Agent) => ({
+      if (data.newAgents && data.newAgents.length > 0) {
+          const newAgents = data.newAgents.map((a: Agent) => ({
               ...a,
               id: `suggested-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               type: 'SUGGESTED',
-              color: 'bg-emerald-500'
+              color: 'bg-emerald-500',
+              avatar: '🤖'
           }));
           
           currentAgents = [...currentAgents, ...newAgents];
-          setAgents(currentAgents); // Update global state
+          setAgents(currentAgents);
       }
 
       // Map steps to agent IDs (handling new agents by name matching)
-      const initializedSteps = parsed.steps.map((s: ExecutionStep) => {
+      const initializedSteps = data.plan.map((s: { agentId: string; instruction: string; trainingIterations?: number }) => {
           const matchedAgent = currentAgents.find(a => a.id === s.agentId || a.name === s.agentId);
           return { 
               ...s, 
-              agentId: matchedAgent ? matchedAgent.id : s.agentId, // Ensure ID is used
+              agentId: matchedAgent ? matchedAgent.id : s.agentId,
               status: 'PENDING', 
               attempts: 0 
           };
       });
 
-      setPlan({ ...parsed, steps: initializedSteps });
+      setPlan({ steps: initializedSteps, explanation: "Plan generated by backend." });
     } catch (e) {
       console.error(e);
-      alert("Planning failed. Try again.");
+      alert("Planning failed. Is the backend running?");
     } finally {
       setIsPlanning(false);
     }
@@ -570,15 +292,15 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
                 
                 <div className="space-y-3 mb-6">
                     {plan.steps.map((step, idx) => {
-                        const fallbackAgent: Agent = { id: 'unknown', name: 'Unknown', role: 'Worker', goal: '', backstory: '', avatar: '?', color: 'bg-gray-500', type: 'CUSTOM' };
+                        const fallbackAgent: Agent = { id: 'unknown', name: 'Unknown', role: 'Worker', goal: '', backstory: '', avatar: '?', color: 'bg-gray-500', type: 'CUSTOM', toolIds: [] };
                         const agent = (Array.isArray(agents) && agents.find(a => a.id === step.agentId)) || fallbackAgent;
                         return (
                             <div key={idx} className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg">
                                 <div className="text-xs font-mono text-slate-400 w-6">0{idx+1}</div>
-                                <div className="text-2xl">{agent.avatar}</div>
+                                <div className="text-2xl">{agent.avatar || '🤖'}</div>
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2">
-                                        <div className="text-sm font-bold text-slate-900 dark:text-white">{agent.name}</div>
+                                        <div className="text-sm font-bold text-slate-900 dark:text-white">{agent.name || agent.role}</div>
                                         {agent.type === 'SUGGESTED' && <span className="text-[10px] bg-emerald-600 text-white px-1.5 rounded-sm flex items-center gap-1"><UserPlus className="w-3 h-3"/> NEW</span>}
                                     </div>
                                     <div className="text-xs text-slate-500">{step.instruction}</div>
@@ -794,18 +516,6 @@ export default function AgentPlatform() {
           if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) {
-                  // Merge saved agents with default agents to ensure new defaults appear
-                  // We prioritize saved agents if they have same ID, but new defaults should be added if not present
-                  // Actually, if we just use saved, new defaults won't appear.
-                  // Strategy: Filter out defaults from saved, then append current defaults?
-                  // No, user might have deleted defaults.
-                  // Better: Just check if the *new* default agents are in the list.
-
-                  // For now, I'll force append the new agents if they are not present, or just let the user see what they had.
-                  // But the user requested "Create 3 agents", implying they should appear now.
-                  // If I return 'parsed', the new defaults won't be there if the user already visited the page.
-                  // I will construct a merged list.
-
                   const existingIds = new Set(parsed.map((a: Agent) => a.id));
                   const newDefaults = DEFAULT_AGENTS.filter(a => !existingIds.has(a.id));
                   return [...parsed, ...newDefaults];
@@ -817,7 +527,6 @@ export default function AgentPlatform() {
       return DEFAULT_AGENTS;
   });
   
-  // Auto-save agents to local storage whenever they change.
   useEffect(() => {
       try {
           localStorage.setItem('agent_os_library', JSON.stringify(agents));
@@ -854,10 +563,9 @@ export default function AgentPlatform() {
       setIsRunning(false);
   };
 
-// --- NEW WEBSOCKET CONNECTOR ---
   const runOrchestratedSimulation = async (
     plan: ExecutionPlan, 
-    processType: 'sequential' | 'hierarchical', // <--- NEW PARAM
+    processType: 'sequential' | 'hierarchical',
     context?: string
 ) => {
     setActiveTab('monitor');
@@ -865,18 +573,18 @@ export default function AgentPlatform() {
     setLogs([]);
     setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
     
-    // 1. Pack the Mission Data
-    // We send your Agent definitions and the Plan steps to Python
     const payload = {
     agents: agents.map(a => ({
-        // ... (existing agent fields) ...
         id: a.id, 
         name: a.name, 
         role: a.role, 
         goal: a.goal, 
         backstory: a.backstory, 
         toolIds: a.toolIds || [], 
-        humanInput: a.humanInput 
+        humanInput: a.humanInput,
+        reasoning: a.reasoning,
+        max_iter: a.max_iter,
+        max_reasoning_attempts: a.max_reasoning_attempts
     })),
     plan: plan.steps.map(s => ({ 
         id: s.id, 
@@ -884,20 +592,13 @@ export default function AgentPlatform() {
         instruction: s.instruction 
     })),
     process: processType,
-    
-    // --- NEW FIELD ---
-    // 'fileContent' is the state variable from the file uploader 
-    // that already exists in your MissionControl component
     context: context || "" 
 };
 
     try {
-      // 2. Open the Phone Line (WebSocket)
       const ws = new WebSocket('ws://localhost:8000/ws');
       
       ws.onopen = () => {
-        // Send the payload immediately
-        // FIXED: Wrap payload to match backend expectation
         ws.send(JSON.stringify({ action: "START_MISSION", payload }));
         setLogs(p => [...p, { 
              id: 'sys-connect', 
@@ -909,10 +610,8 @@ export default function AgentPlatform() {
       };
 
       ws.onmessage = (event) => {
-        // 3. Listen for "Thoughts" from Python
         const msg = JSON.parse(event.data);
         
-        // Handle explicit error messages
         if (msg.type === 'ERROR') {
              setLogs(p => [...p, { id: `err-${Date.now()}`, timestamp: Date.now(), agentName: 'System', type: 'ERROR', content: msg.content }]);
              return;
@@ -933,7 +632,6 @@ export default function AgentPlatform() {
 
         setLogs(prev => [...prev, newLog]);
 
-        // Keep the Artifact Detection (Visual Preview) logic
         if (msg.type === 'OUTPUT') {
             extractArtifacts(msg.content, msg.agentName || 'Crew');
         }
@@ -970,7 +668,6 @@ export default function AgentPlatform() {
             {activeTab === 'code' && <CodeExport agents={agents} />}
         </div>
 
-        {/* Token & Cost Display Footer */}
         <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0 text-slate-400">
             <div className="flex items-center gap-1.5" title="Estimated Input/Output Tokens">
                 <Zap className="w-3 h-3 text-yellow-500" />

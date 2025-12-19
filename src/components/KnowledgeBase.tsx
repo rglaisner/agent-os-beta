@@ -49,9 +49,8 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
     setLoading(false);
   };
 
-  const handleFileIngest = async (file: File) => {
+  const ingestFile = async (file: File) => {
       setLoading(true);
-
       const fd = new FormData();
       fd.append("file", file);
       try {
@@ -64,40 +63,9 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
       setLoading(false);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (!e.dataTransfer.files?.length) return;
-
-    setLoading(true);
-
-    const fd = new FormData();
-    fd.append("file", e.dataTransfer.files[0]);
-    try {
-        await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
-        fetchDocs();
-    } catch (e) {
-      console.error(e);
-      alert("Upload failed");
-    }
-    setLoading(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          handleFileIngest(e.dataTransfer.files[0]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          ingestFile(e.target.files[0]);
       }
   };
 
@@ -109,6 +77,25 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const handleDragLeave = (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          ingestFile(e.dataTransfer.files[0]);
+      }
+  };
+
+  const handleDelete = async (docName: string) => {
+    if (!confirm(`Are you sure you want to delete ${docName}?`)) return;
+    try {
+      await fetch(`${httpUrl}/api/knowledge/${docName}`, { method: 'DELETE' });
+      fetchDocs();
+    } catch (e) {
+      console.error(e);
+      alert('Error deleting document');
+    }
   };
 
   const filteredDocuments = documents.filter(doc =>
@@ -136,7 +123,7 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
                     <p className="text-sm font-bold text-slate-700">Drag & Drop or Click to Upload</p>
                     <p className="text-xs text-slate-400 mt-1">PDFs and Text files supported</p>
                 </div>
-                <input type="file" onChange={handleFileIngest} className="absolute inset-0 opacity-0 cursor-pointer" />
+                <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
              </div>
         </div>
 

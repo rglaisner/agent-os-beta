@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 # Imports
 from database import init_db, create_mission, update_mission_result
-from core.agents import create_agents, create_tasks
+from core.agents import create_agents, create_tasks, MANAGER_MODEL
 from core.socket_handler import WebSocketHandler
 from api.routes import router as api_router
 from tools.base_tools import human_input_store
@@ -52,16 +52,25 @@ async def websocket_handler(websocket: WebSocket):
                     await websocket.send_json({"type": "ERROR", "content": "Missing API Key"})
                     continue
                 os.environ["GOOGLE_API_KEY"] = api_key
-                os.environ["OPENAI_API_KEY"] = "NA" # CrewAI fix
+                # CrewAI workaround: some internal tools check for OPENAI_API_KEY.
+                # Setting it to "NA" prevents validation errors when using other providers.
+                if "OPENAI_API_KEY" not in os.environ:
+                    os.environ["OPENAI_API_KEY"] = "NA"
                 
                 try:
                     # Create Agents & Tasks
                     uploaded_files = payload.get("files", [])
+                    # Support 'context' from App_Local as file content if passed
+                    if payload.get("context"):
+                        # If context is raw text, maybe save it to a file?
+                        # For now, we assume payload['files'] handles file paths.
+                        pass
+
                     agents_map = create_agents(payload['agents'], uploaded_files, websocket, mission_id)
                     tasks = create_tasks(payload['plan'], agents_map, uploaded_files)
 
                     # Process Type logic
-                    process_type = payload.get("processType", "sequential")
+                    process_type = payload.get("processType") or payload.get("process") or "sequential"
 
                     await websocket.send_json({"type": "SYSTEM", "content": f"Mission Started ({process_type.upper()})"})
 
@@ -75,9 +84,9 @@ async def websocket_handler(websocket: WebSocket):
 
                     if process_type == "hierarchical":
                         # Manager LLM - explicit model name
-                        manager_handler = WebSocketHandler(websocket, mission_id, default_model="gemini-2.5-pro")
+                        manager_handler = WebSocketHandler(websocket, mission_id, default_model=MANAGER_MODEL.split("/")[-1])
                         crew_args["manager_llm"] = LLM(
-                            model="gemini/gemini-2.5-pro",
+                            model=MANAGER_MODEL,
                             temperature=0.7,
                             callbacks=[manager_handler]
                         )
