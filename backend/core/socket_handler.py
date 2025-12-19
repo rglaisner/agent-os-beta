@@ -50,14 +50,20 @@ class WebSocketHandler(BaseCallbackHandler):
 
     def on_llm_start(self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any) -> None:
         # Estimate input tokens
-        # 1 token ~= 4 chars
-        est_tokens = sum([len(p) for p in prompts]) / 4
+        # For Gemini models: ~1 token per 3-4 characters for English text
+        # This is an approximation; actual tokenization varies by model and content
+        total_chars = sum([len(p) for p in prompts])
+        # Use 3.5 as average for better accuracy
+        est_tokens = int(total_chars / 3.5)
         self.input_tokens += est_tokens
 
         self._safe_send({"type": "THOUGHT", "content": "Thinking...", "agentName": "Agent"})
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        self.output_tokens += 1 # Rough estimate per stream chunk
+        # Estimate tokens: Gemini typically streams sub-word units
+        # Count characters and estimate (more accurate than counting chunks)
+        token_estimate = max(1, len(token) // 3)  # Rough estimate: ~3 chars per token
+        self.output_tokens += token_estimate
         self._safe_send({"type": "STREAM", "content": token, "agentName": "Agent"})
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:

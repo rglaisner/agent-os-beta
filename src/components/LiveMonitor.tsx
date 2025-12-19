@@ -42,11 +42,13 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
   // Check for new interventions
   useEffect(() => {
       const lastLog = logs[logs.length - 1];
-      if (lastLog && lastLog.type === 'INTERVENTION_REQUIRED') {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setActiveIntervention(lastLog);
+      if (lastLog && (lastLog.type === 'INTERVENTION_REQUIRED' || lastLog.type === 'HUMAN_INPUT_REQUEST')) {
+          // Only set if we don't already have an active intervention
+          if (!activeIntervention) {
+              setActiveIntervention(lastLog);
+          }
       }
-  }, [logs]);
+  }, [logs, activeIntervention]);
 
   const handleInterventionResponse = (requestId: string, action: 'PROCEED' | 'IGNORE' | 'RETRY' | 'CANCEL') => {
       if (onHumanResponse) {

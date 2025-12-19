@@ -5,7 +5,10 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
-from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
+from tools.rag import (
+    add_document_to_kb, list_documents, delete_document_by_source, search_documents,
+    semantic_search_with_expansion, summarize_document, get_knowledge_base_health
+)
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
 
@@ -38,16 +41,29 @@ async def upload_knowledge(file: UploadFile = File(...)):
         text = ""
         if file.filename.endswith(".pdf"):
             import pypdf
-            reader = pypdf.PdfReader(file_path)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
+            try:
+                reader = pypdf.PdfReader(file_path)
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+            except Exception as e:
+                raise HTTPException(400, f"Failed to read PDF: {str(e)}")
         else:
-            # Assume text/code
-            with open(file_path, "r", errors='ignore') as f:
-                text = f.read()
+            # Try UTF-8 first, then fallback to latin-1, then error
+            encodings = ['utf-8', 'latin-1', 'cp1252']
+            text = None
+            for encoding in encodings:
+                try:
+                    with open(file_path, "r", encoding=encoding) as f:
+                        text = f.read()
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if text is None:
+                raise HTTPException(400, "Could not decode file text. Please ensure file is UTF-8 encoded.")
 
         if not text.strip():
-            raise HTTPException(400, "Could not extract text from file.")
+            raise HTTPException(400, "Could not extract text from file or file is empty.")
 
         add_document_to_kb(text, file.filename)
         return {"status": "success", "message": f"Indexed {file.filename}"}
@@ -70,6 +86,50 @@ async def search_knowledge(data: KnowledgeSearch):
     results = search_documents(data.query)
     return {"results": results}
 
+@router.post("/knowledge/search/semantic")
+async def semantic_search(data: KnowledgeSearch):
+    """Semantic search with query expansion."""
+    results = semantic_search_with_expansion(data.query)
+    return {"results": results}
+
+@router.post("/knowledge/summarize")
+async def summarize_knowledge(data: KnowledgeUpload):
+    """Automatically summarize a document."""
+    summary = summarize_document(data.text)
+    return {"summary": summary}
+
+@router.get("/knowledge/health")
+async def knowledge_health():
+    """Get knowledge base health metrics."""
+    health = get_knowledge_base_health()
+    return health
+
+@router.get("/knowledge/graph")
+async def knowledge_graph():
+    """Get knowledge graph visualization data."""
+    # Simplified knowledge graph - in production, use proper graph database
+    collection = get_collection()
+    data = collection.get(include=['metadatas', 'documents'])
+    
+    nodes = []
+    edges = []
+    source_map = {}
+    
+    for i, metadata in enumerate(data.get('metadatas', [])):
+        if metadata and 'source' in metadata:
+            source = metadata['source']
+            if source not in source_map:
+                source_map[source] = len(nodes)
+                nodes.append({"id": source, "label": source, "type": "document"})
+    
+    # Simple edge creation based on shared keywords (simplified)
+    # In production, use proper entity extraction and relationship detection
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "total_nodes": len(nodes)
+    }
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     """Handles uploading large files (PDF, CSV, Excel)"""
@@ -91,7 +151,7 @@ async def generate_plan(request: PlanRequest):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key: raise HTTPException(500, "Missing API Key")
 
-    # Using 1.5-flash as 2.5 is not yet standard/available in this SDK context
+    # Using gemini-2.0-flash for plan generation
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
 
     agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])

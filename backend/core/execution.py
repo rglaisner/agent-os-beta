@@ -1,3 +1,14 @@
+"""
+Alternative execution flow with supervisor-based quality control.
+
+NOTE: This module defines an alternative execution flow (run_mission_loop) that uses
+a supervisor LLM to grade agent outputs. However, it is currently NOT USED by the
+main application, which uses CrewAI's built-in execution flow instead.
+
+This code is kept for potential future use or as a reference implementation.
+To use this flow, modify backend/api/websocket.py to import and call run_mission_loop
+instead of using Crew.kickoff() directly.
+"""
 import asyncio
 import json
 from typing import List, Dict, Any, Optional
@@ -6,6 +17,8 @@ from fastapi import WebSocket
 from crewai import Agent, Task, Crew, LLM
 from core.config import MANAGER_MODEL, GEMINI_SAFETY_SETTINGS
 from core.socket_handler import WebSocketHandler
+from core.database import add_communication_log, update_mission_analytics
+import time
 
 # Data Models
 class ExecutionContext:
@@ -26,6 +39,8 @@ async def run_mission_loop(
     mission_id: int
 ):
     context = ExecutionContext()
+    start_time = time.time()
+    agent_types_used = set()
 
     # Initialize Supervisor LLM
     # We use a dedicated handler for the supervisor to track its usage if needed,
@@ -47,7 +62,17 @@ async def run_mission_loop(
             # Fallback
             agent = list(agents_map.values())[0]
 
+        agent_types_used.add(agent.role)
         instruction = step.get('instruction', '')
+        
+        # Log agent communication (delegation/assignment)
+        add_communication_log(
+            mission_id=mission_id,
+            from_agent="System",
+            to_agent=agent.role,
+            message_type="DELEGATION",
+            content=f"Assigned task: {instruction[:100]}"
+        )
 
         # Human-in-the-loop / Retry State
         attempts_allowed = 3
@@ -104,6 +129,16 @@ async def run_mission_loop(
                 await send_terminal_log(websocket, agent.role, result_content)
 
                 context.history.append(result_content)
+                
+                # Log agent response
+                add_communication_log(
+                    mission_id=mission_id,
+                    from_agent=agent.role,
+                    to_agent="System",
+                    message_type="RESPONSE",
+                    content=f"Completed: {result_content[:200]}"
+                )
+                
                 await send_system_log(websocket, "● ACTION") # Prep for next
                 step_complete = True
             else:
@@ -137,10 +172,25 @@ async def run_mission_loop(
                         current_attempt += 1
                     elif user_decision['action'] == "CANCEL":
                         await send_system_log(websocket, "Mission Cancelled by User.")
+                        # Update analytics even if cancelled
+                        execution_time = time.time() - start_time
+                        update_mission_analytics(
+                            mission_id=mission_id,
+                            execution_time=execution_time,
+                            agent_types=list(agent_types_used)
+                        )
                         return # Exit loop
                     else:
                          # Default to proceed if something weird happens
                          step_complete = True
+    
+    # Mission completed - update analytics
+    execution_time = time.time() - start_time
+    update_mission_analytics(
+        mission_id=mission_id,
+        execution_time=execution_time,
+        agent_types=list(agent_types_used)
+    )
 
 async def evaluate_output(llm: LLM, instruction: str, output: str, attempt: int, max_attempts: int) -> SupervisorGrade:
     # Determine base threshold

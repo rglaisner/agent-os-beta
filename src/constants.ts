@@ -25,7 +25,7 @@ export interface Agent {
 }
 
 export interface PlanStep {
-  id: string;
+  id: string; // Backend expects string, frontend converts Date.now() to string
   instruction: string;
   agentId: string;
   trainingIterations?: number;

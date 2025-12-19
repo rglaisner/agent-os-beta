@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Set
 
 # LLM Configuration
@@ -28,4 +29,29 @@ def check_api_key(key_name: str, tool_name: str) -> bool:
         print(f"Warning: {key_name} not found or empty. {tool_name} skipped.")
         WARNED_MISSING_KEYS.add(key_name)
     return False
+
+def validate_environment():
+    """
+    Validate required environment variables on startup.
+    Returns True if all required vars are present, False otherwise.
+    """
+    required_vars = {
+        "GEMINI_API_KEY": "Google Gemini API key is required for LLM operations"
+    }
+    
+    missing = []
+    for var, description in required_vars.items():
+        if not os.getenv(var) or not os.getenv(var).strip():
+            missing.append(f"{var}: {description}")
+    
+    if missing:
+        print("=" * 60)
+        print("ERROR: Missing required environment variables:")
+        for msg in missing:
+            print(f"  - {msg}")
+        print("=" * 60)
+        print("\nPlease set the required environment variables and restart the server.")
+        return False
+    
+    return True
 

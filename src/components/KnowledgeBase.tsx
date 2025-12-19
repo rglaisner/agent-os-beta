@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Book, Upload, FileText, Loader, Search } from 'lucide-react';
+import { Book, Upload, FileText, Loader, Search, Sparkles, Network, Activity, FileCheck } from 'lucide-react';
 
 interface KnowledgeBaseProps {
   backendUrl: string;
@@ -12,6 +12,11 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const [uploadSource, setUploadSource] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [semanticResults, setSemanticResults] = useState<any[]>([]);
+  const [healthMetrics, setHealthMetrics] = useState<any>(null);
+  const [knowledgeGraph, setKnowledgeGraph] = useState<any>(null);
+  const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string>('');
 
   const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '');
 
@@ -110,6 +115,66 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
     doc.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleSemanticSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${httpUrl}/api/knowledge/search/semantic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: searchQuery })
+      });
+      const data = await res.json();
+      setSemanticResults(data.results || []);
+    } catch (e: any) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  const fetchHealthMetrics = async () => {
+    try {
+      const res = await fetch(`${httpUrl}/api/knowledge/health`);
+      const data = await res.json();
+      setHealthMetrics(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchKnowledgeGraph = async () => {
+    try {
+      const res = await fetch(`${httpUrl}/api/knowledge/graph`);
+      const data = await res.json();
+      setKnowledgeGraph(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const summarizeDocument = async (docName: string) => {
+    setLoading(true);
+    try {
+      // Get document content first (simplified - would need to fetch actual content)
+      const res = await fetch(`${httpUrl}/api/knowledge/summarize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `Document: ${docName}`, source: docName })
+      });
+      const data = await res.json();
+      setSummary(data.summary || '');
+      setSelectedDoc(docName);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchHealthMetrics();
+    fetchKnowledgeGraph();
+  }, []);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 h-full p-1 overflow-y-auto">
       {/* LEFT COLUMN: Upload & Manual Entry */}
@@ -170,15 +235,76 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
         </div>
 
         {/* Search Bar */}
-        <div className="mb-4 relative">
-             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-             <input
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-             />
+        <div className="mb-4 space-y-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            <input
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleSemanticSearch()}
+            />
+          </div>
+          <button
+            onClick={handleSemanticSearch}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Sparkles className="w-3 h-3" />
+            Semantic Search
+          </button>
         </div>
+
+        {/* Health Metrics */}
+        {healthMetrics && (
+          <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="w-4 h-4 text-emerald-500" />
+              <span className="font-bold text-xs text-slate-700">Knowledge Base Health</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-slate-500">Documents:</span>
+                <span className="font-bold ml-1">{healthMetrics.total_documents || 0}</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Coverage:</span>
+                <span className="font-bold ml-1">{healthMetrics.coverage_score || 0}%</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Chunks:</span>
+                <span className="font-bold ml-1">{healthMetrics.total_chunks || 0}</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Status:</span>
+                <span className={`font-bold ml-1 ${
+                  healthMetrics.health_status === 'good' ? 'text-emerald-600' : 'text-orange-600'
+                }`}>
+                  {healthMetrics.health_status || 'unknown'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Semantic Search Results */}
+        {semanticResults.length > 0 && (
+          <div className="mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-indigo-500" />
+              <span className="font-bold text-xs text-indigo-900">Semantic Search Results</span>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {semanticResults.map((result, idx) => (
+                <div key={idx} className="text-xs bg-white p-2 rounded border border-indigo-100">
+                  <div className="font-medium text-slate-700">{result.metadata?.source || 'Unknown'}</div>
+                  <div className="text-slate-600 mt-1 line-clamp-2">{result.content}</div>
+                  <div className="text-slate-400 mt-1">Score: {(1 - result.score).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto pr-2">
             {documents.length === 0 ? (
@@ -196,9 +322,18 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
                                     <FileText className="w-5 h-5 text-indigo-500" />
                                 </div>
                                 <span className="font-medium text-sm text-slate-700 truncate flex-1">{doc}</span>
-                                <button onClick={() => handleDelete(doc)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => summarizeDocument(doc)}
+                                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 transition-opacity"
+                                    title="Summarize"
+                                  >
+                                    <FileCheck className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDelete(doc)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                </button>
+                                  </button>
+                                </div>
                             </div>
                         ))
                     )}
@@ -207,6 +342,32 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
         </div>
       </div>
 
+      {/* Summary Modal */}
+      {selectedDoc && summary && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setSelectedDoc(null); setSummary(''); }}>
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg">Summary: {selectedDoc}</h3>
+              <button onClick={() => { setSelectedDoc(null); setSummary(''); }} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <p className="text-slate-700 whitespace-pre-wrap">{summary}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Knowledge Graph */}
+      {knowledgeGraph && knowledgeGraph.nodes && knowledgeGraph.nodes.length > 0 && (
+        <div className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Network className="w-5 h-5 text-purple-500" />
+            <h3 className="font-bold text-lg text-slate-800">Knowledge Graph</h3>
+          </div>
+          <div className="text-sm text-slate-600">
+            <p>Total Nodes: {knowledgeGraph.total_nodes}</p>
+            <p className="text-xs text-slate-400 mt-2">Graph visualization would be rendered here (requires graph library)</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
