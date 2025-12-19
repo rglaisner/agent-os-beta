@@ -5,7 +5,10 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
-from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
+from tools.rag import (
+    add_document_to_kb, list_documents, delete_document_by_source, search_documents,
+    semantic_search_with_expansion, summarize_document, get_knowledge_base_health
+)
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
 
@@ -82,6 +85,50 @@ async def delete_knowledge(source_name: str):
 async def search_knowledge(data: KnowledgeSearch):
     results = search_documents(data.query)
     return {"results": results}
+
+@router.post("/knowledge/search/semantic")
+async def semantic_search(data: KnowledgeSearch):
+    """Semantic search with query expansion."""
+    results = semantic_search_with_expansion(data.query)
+    return {"results": results}
+
+@router.post("/knowledge/summarize")
+async def summarize_knowledge(data: KnowledgeUpload):
+    """Automatically summarize a document."""
+    summary = summarize_document(data.text)
+    return {"summary": summary}
+
+@router.get("/knowledge/health")
+async def knowledge_health():
+    """Get knowledge base health metrics."""
+    health = get_knowledge_base_health()
+    return health
+
+@router.get("/knowledge/graph")
+async def knowledge_graph():
+    """Get knowledge graph visualization data."""
+    # Simplified knowledge graph - in production, use proper graph database
+    collection = get_collection()
+    data = collection.get(include=['metadatas', 'documents'])
+    
+    nodes = []
+    edges = []
+    source_map = {}
+    
+    for i, metadata in enumerate(data.get('metadatas', [])):
+        if metadata and 'source' in metadata:
+            source = metadata['source']
+            if source not in source_map:
+                source_map[source] = len(nodes)
+                nodes.append({"id": source, "label": source, "type": "document"})
+    
+    # Simple edge creation based on shared keywords (simplified)
+    # In production, use proper entity extraction and relationship detection
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "total_nodes": len(nodes)
+    }
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
