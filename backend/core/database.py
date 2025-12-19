@@ -1,7 +1,6 @@
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 # Setup SQLite Database
 DATABASE_URL = "sqlite:///./agent_os.db"
@@ -33,6 +32,17 @@ class MissionEvent(Base):
     type = Column(String)
     content = Column(Text)
     mission = relationship("Mission", back_populates="events")
+
+class AgentCommunicationLog(Base):
+    __tablename__ = "agent_communication_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    agent_name = Column(String)
+    message_type = Column(String)
+    content = Column(Text)
+    log_metadata = Column(Text, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
 
 # --- HELPER FUNCTIONS ---
 
