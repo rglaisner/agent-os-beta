@@ -1,5 +1,5 @@
 import unittest
-from backend.database import init_db, engine, Base
+from core.database import init_db, engine, Base
 
 class TestDatabase(unittest.TestCase):
     def test_init_db(self):
