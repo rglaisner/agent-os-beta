@@ -113,14 +113,16 @@ export default function AgentPlatform() {
           </div>
         )}
         <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
-            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} onUpdateAgent={updateAgent} />}
-            {activeTab === 'MONITOR' && (
-                <>
-                    <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
-                    <div className="h-64"><MissionHistory backendUrl={backendUrl} /></div>
-                </>
-            )}
-            {activeTab === 'KNOWLEDGE' && <KnowledgeBase backendUrl={backendUrl} />}
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-y-auto ${activeTab === 'SETUP' ? 'flex' : 'hidden'}`}>
+                <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} onUpdateAgent={updateAgent} />
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'MONITOR' ? 'flex' : 'hidden'}`}>
+                <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
+                <div className="h-64"><MissionHistory backendUrl={backendUrl} /></div>
+            </div>
+            <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'KNOWLEDGE' ? 'flex' : 'hidden'}`}>
+                <KnowledgeBase backendUrl={backendUrl} />
+            </div>
         </div>
       </main>
 
