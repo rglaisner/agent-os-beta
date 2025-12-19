@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Bot, Plus, Coins, Zap } from 'lucide-react';
+import { Bot, Plus, Coins, Zap, Flag } from 'lucide-react';
 import LiveMonitor from './components/LiveMonitor';
 import AgentCard from './components/AgentCard';
 import MissionControl from './components/MissionControl';
@@ -17,6 +17,7 @@ export default function AgentPlatform() {
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<'SETUP' | 'MONITOR' | 'KNOWLEDGE'>('SETUP');
   const [usage, setUsage] = useState<TokenUsage>({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
+  const [finalOutput, setFinalOutput] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const addAgent = () => {
@@ -46,6 +47,7 @@ export default function AgentPlatform() {
     setIsRunning(true);
     setActiveTab('MONITOR');
     setLogs([]);
+    setFinalOutput(null); // Reset final output
     setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 }); // Reset Usage
     try {
         const ws = new WebSocket(backendUrl);
@@ -63,6 +65,13 @@ export default function AgentPlatform() {
 
             if (data.type === 'USAGE') {
                 setUsage(data.content);
+                return;
+            }
+
+            if (data.type === 'OUTPUT' && data.agentName === 'System') {
+                setFinalOutput(data.content);
+                // Also log it
+                setLogs(prev => [...prev, { timestamp: new Date().toISOString(), agentName: 'System', type: 'OUTPUT', content: data.content }]);
                 return;
             }
 
@@ -117,7 +126,21 @@ export default function AgentPlatform() {
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'MONITOR' ? 'flex' : 'hidden'}`}>
                 <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
-                <div className="h-48 flex-none"><MissionHistory backendUrl={backendUrl} /></div>
+
+                {/* Final Output Box */}
+                {finalOutput && (
+                    <div className="bg-white rounded-xl border border-emerald-200 shadow-lg shadow-emerald-50 overflow-hidden flex flex-col max-h-[40vh] animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-emerald-50/50 px-4 py-3 border-b border-emerald-100 flex items-center gap-2">
+                             <div className="bg-emerald-100 p-1 rounded-md text-emerald-600"><Flag className="w-4 h-4" /></div>
+                             <h3 className="font-bold text-emerald-900 text-sm uppercase tracking-wider">Mission Accomplished</h3>
+                        </div>
+                        <div className="p-6 overflow-y-auto bg-white">
+                            <pre className="whitespace-pre-wrap font-sans text-slate-700 leading-relaxed text-sm">{finalOutput}</pre>
+                        </div>
+                    </div>
+                )}
+
+                <div className={`${finalOutput ? 'h-32 opacity-75' : 'h-64'} transition-all duration-500`}><MissionHistory backendUrl={backendUrl} /></div>
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'KNOWLEDGE' ? 'flex' : 'hidden'}`}>
                 <KnowledgeBase backendUrl={backendUrl} />
