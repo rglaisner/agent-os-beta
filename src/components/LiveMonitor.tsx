@@ -24,9 +24,10 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
 
   // Extract images from logs
   const images = logs
-    .filter(l => l.content.includes('/static/plots/'))
+    .filter(l => typeof l.content === 'string' && l.content.includes('/static/plots/'))
     .map(l => {
-        const match = l.content.match(/\/static\/plots\/[a-zA-Z0-9_]+\.png/);
+        const content = typeof l.content === 'string' ? l.content : String(l.content);
+        const match = content.match(/\/static\/plots\/[a-zA-Z0-9_]+\.png/);
         return match ? match[0] : null;
     })
     .filter(Boolean) as string[];
