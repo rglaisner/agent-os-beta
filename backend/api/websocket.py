@@ -1,7 +1,7 @@
 import os
 import asyncio
 import logging
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, HTTPException, status
 
 # Imports
 from core.database import create_mission, update_mission_result
@@ -13,6 +13,39 @@ from tools.base_tools import human_input_store
 
 # CrewAI
 from crewai import Crew, Process, LLM
+
+def is_origin_allowed(origin: str) -> bool:
+    """
+    Check if the WebSocket origin is allowed.
+    Allows all origins in development, or checks against CORS_ORIGINS in production.
+    """
+    # Always allow connections without origin header (common in WebSocket clients)
+    if not origin:
+        return True
+    
+    # Get allowed origins from environment
+    cors_origins = os.getenv("CORS_ORIGINS", "*")
+    allowed_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    
+    # If wildcard is set, allow all origins
+    if "*" in allowed_origins or not allowed_origins:
+        return True
+    
+    # Check if origin matches any allowed origin
+    origin = origin.strip()
+    for allowed in allowed_origins:
+        if origin == allowed:
+            return True
+        # Also allow if origin starts with allowed (for subdomain matching)
+        if allowed.startswith("*") and origin.endswith(allowed[1:]):
+            return True
+    
+    # In production, be more permissive if CORS_ORIGINS is not explicitly set
+    # This helps with Render.com and other hosting platforms
+    if os.getenv("ENVIRONMENT") != "production" or cors_origins == "*":
+        return True
+    
+    return False
 
 async def websocket_handler(websocket: WebSocket):
     """
@@ -29,6 +62,29 @@ async def websocket_handler(websocket: WebSocket):
         return
     
     await websocket.accept()
+    # Accept the connection FIRST - this is critical for WebSocket connections
+    # FastAPI will reject with 403 if we don't accept quickly enough
+    try:
+        await websocket.accept()
+    except Exception as e:
+        # If accept fails, log and return (connection already rejected)
+        logging.error(f"Failed to accept WebSocket connection during handshake: {e}")
+        return
+    
+    # Get origin from headers (after acceptance, for logging only)
+    origin = websocket.headers.get("origin") or websocket.headers.get("Origin") or websocket.headers.get("ORIGIN")
+    client_host = websocket.client.host if websocket.client else "unknown"
+    logging.info(f"WebSocket connection accepted from {client_host}, origin: {origin}")
+    
+    # Note: We accept first, then validate. If origin is not allowed, we close the connection.
+    # This is more permissive and works better with proxies/load balancers.
+    if origin and not is_origin_allowed(origin):
+        logging.warning(f"WebSocket connection from {client_host} has disallowed origin: {origin}, closing connection")
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origin not allowed")
+        except Exception:
+            pass  # Connection might already be closed
+        return
     try:
         while True:
             try:
@@ -59,7 +115,15 @@ async def websocket_handler(websocket: WebSocket):
                      continue
 
                 try:
-                    mission_id = create_mission(payload['plan'][0]['instruction'][:50])
+                    # Extract goal from plan or use default
+                    goal_text = payload.get('goal', '')
+                    if not goal_text and payload.get('plan') and len(payload['plan']) > 0:
+                        goal_text = payload['plan'][0].get('instruction', 'Mission')[:100]
+                    if not goal_text:
+                        goal_text = 'Mission'
+                    mission_id = create_mission(goal_text)
+                    # Send mission ID to frontend
+                    await websocket.send_json({"type": "MISSION_STARTED", "mission_id": mission_id, "goal": goal_text})
                 except Exception as e:
                     await websocket.send_json({"type": "ERROR", "content": f"Database Error: {str(e)}"})
                     continue
