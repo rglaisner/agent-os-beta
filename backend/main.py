@@ -56,6 +56,8 @@ app.include_router(communications_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 
 # --- WEBSOCKET ENDPOINT ---
+# Support both /ws and / for WebSocket connections
+# This ensures compatibility with different frontend configurations
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket_handler(websocket)
