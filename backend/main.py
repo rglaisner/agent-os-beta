@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 # Imports
 from database import init_db, create_mission, update_mission_result
-from core.agents import create_agents, create_tasks, MANAGER_MODEL
+from core.agents import create_agents, create_tasks, MANAGER_MODEL, GEMINI_SAFETY_SETTINGS
 from core.socket_handler import WebSocketHandler
 from core.logging_handler import WebSocketLoggingHandler
 from api.routes import router as api_router
@@ -99,7 +99,9 @@ async def websocket_handler(websocket: WebSocket):
                         crew_args["manager_llm"] = LLM(
                             model=MANAGER_MODEL,
                             temperature=0.7,
-                            callbacks=[manager_handler]
+                            callbacks=[manager_handler],
+                            timeout=600,  # 10 minutes timeout
+                            safety_settings=GEMINI_SAFETY_SETTINGS
                         )
 
                     crew = Crew(**crew_args)

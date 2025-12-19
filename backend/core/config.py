@@ -5,6 +5,14 @@ from typing import Set
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini/gemini-2.0-flash")
 MANAGER_MODEL = os.getenv("MANAGER_MODEL", "gemini/gemini-2.5-pro")
 
+# Gemini Safety Settings - BLOCK_NONE to prevent silent failures
+GEMINI_SAFETY_SETTINGS = [
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+]
+
 # API Key Validation
 WARNED_MISSING_KEYS: Set[str] = set()
 

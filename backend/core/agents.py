@@ -10,7 +10,7 @@ from crewai_tools import (
 )
 
 from core.socket_handler import WebSocketHandler
-from core.config import DEFAULT_MODEL, MANAGER_MODEL, check_api_key, ensure_openai_key
+from core.config import DEFAULT_MODEL, MANAGER_MODEL, GEMINI_SAFETY_SETTINGS, check_api_key, ensure_openai_key
 from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_input_store, WrapperPythonREPLTool
 from tools.rag import KnowledgeBaseTool
 from tools.plotting import DataVisualizationTool
@@ -74,7 +74,12 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
     Create CrewAI Agents based on the provided configuration.
     Injects a Quality Control (QC) Agent into the crew.
     """
-    llm = LLM(model=DEFAULT_MODEL, temperature=0.7)
+    llm = LLM(
+        model=DEFAULT_MODEL,
+        temperature=0.7,
+        timeout=600,  # 10 minutes timeout
+        safety_settings=GEMINI_SAFETY_SETTINGS
+    )
 
     agents_map = {}
     for a_data in agent_data_list:
