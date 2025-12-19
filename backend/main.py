@@ -56,10 +56,6 @@ async def websocket_handler(websocket: WebSocket):
                     await websocket.send_json({"type": "ERROR", "content": "Missing API Key"})
                     continue
                 os.environ["GOOGLE_API_KEY"] = api_key
-                # CrewAI workaround: some internal tools check for OPENAI_API_KEY.
-                # Setting it to "NA" prevents validation errors when using other providers.
-                if "OPENAI_API_KEY" not in os.environ:
-                    os.environ["OPENAI_API_KEY"] = "NA"
                 
                 # Setup Logging Handler for WebSocket
                 loop = asyncio.get_running_loop()
@@ -69,10 +65,6 @@ async def websocket_handler(websocket: WebSocket):
                 root_logger.addHandler(log_handler)
                 # Ensure level is INFO or DEBUG
                 root_logger.setLevel(logging.INFO)
-
-                # Initialize Stdout Interceptor for Raw Terminal Output
-                stdout_interceptor = StdoutInterceptor(websocket, loop)
-                stdout_interceptor.start()
 
                 try:
                     # Create Agents (Plan is handled in execution loop)
@@ -96,7 +88,6 @@ async def websocket_handler(websocket: WebSocket):
                 finally:
                     # Remove the handler to avoid duplicates or leaks
                     root_logger.removeHandler(log_handler)
-                    stdout_interceptor.stop()
 
             elif data.get("action") == "HUMAN_RESPONSE":
                 human_input_store[data["requestId"]] = data["content"]
