@@ -11,8 +11,7 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const [uploadText, setUploadText] = useState('');
   const [uploadSource, setUploadSource] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
 
@@ -34,10 +33,6 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const handleUpload = async () => {
     if (!uploadText || !uploadSource) return;
     setLoading(true);
-    setUploadProgress(10);
-    const interval = setInterval(() => {
-        setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
-    }, 200);
 
     try {
       await fetch(`${httpUrl}/api/knowledge`, {
@@ -45,55 +40,58 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: uploadText, source: uploadSource })
       });
-      setUploadProgress(100);
-      setTimeout(() => {
-          setUploadText('');
-          setUploadSource('');
-          setUploadProgress(0);
-          setShowManualEntry(false);
-      }, 500);
+      setUploadText('');
+      setUploadSource('');
       fetchDocs();
     } catch {
       alert('Error uploading');
-      setUploadProgress(0);
     }
-    clearInterval(interval);
     setLoading(false);
   };
 
   const handleFileIngest = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files?.length) return;
       setLoading(true);
-      setUploadProgress(10);
-       const interval = setInterval(() => {
-        setUploadProgress(prev => (prev < 90 ? prev + 5 : prev));
-      }, 100);
 
       const fd = new FormData();
       fd.append("file", e.target.files[0]);
       try {
           await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
-          setUploadProgress(100);
-          setTimeout(() => setUploadProgress(0), 500);
           fetchDocs();
       } catch (e) {
         console.error(e);
         alert("Upload failed");
-        setUploadProgress(0);
       }
-      clearInterval(interval);
       setLoading(false);
   };
 
-  const handleDelete = async (docName: string) => {
-      if (!confirm(`Are you sure you want to delete "${docName}"?`)) return;
-      try {
-          await fetch(`${httpUrl}/api/knowledge/${docName}`, { method: 'DELETE' });
-          fetchDocs();
-      } catch (e) {
-          console.error(e);
-          alert('Failed to delete document');
-      }
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!e.dataTransfer.files?.length) return;
+
+    setLoading(true);
+
+    const fd = new FormData();
+    fd.append("file", e.dataTransfer.files[0]);
+    try {
+        await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
+        fetchDocs();
+    } catch (e) {
+      console.error(e);
+      alert("Upload failed");
+    }
+    setLoading(false);
   };
 
   const filteredDocuments = documents.filter(doc =>
@@ -121,7 +119,7 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
                     <p className="text-sm font-bold text-slate-700">Drag & Drop or Click to Upload</p>
                     <p className="text-xs text-slate-400 mt-1">PDFs and Text files supported</p>
                 </div>
-                <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                <input type="file" onChange={handleFileIngest} className="absolute inset-0 opacity-0 cursor-pointer" />
              </div>
         </div>
 
@@ -177,10 +175,10 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
                 </p>
             ) : (
                 <div className="flex flex-col gap-3">
-                    {filteredDocs.length === 0 ? (
+                    {filteredDocuments.length === 0 ? (
                          <p className="text-slate-400 italic text-sm text-center py-4">No matching documents found.</p>
                     ) : (
-                        filteredDocs.map((doc, i) => (
+                        filteredDocuments.map((doc, i) => (
                             <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center gap-3 hover:border-indigo-200 hover:shadow-sm transition-all group">
                                 <div className="bg-white p-2 rounded border border-slate-100 group-hover:border-indigo-100">
                                     <FileText className="w-5 h-5 text-indigo-500" />
