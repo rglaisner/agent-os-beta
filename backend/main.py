@@ -10,7 +10,6 @@ from database import init_db, create_mission, update_mission_result
 from core.agents import create_agents, create_tasks, MANAGER_MODEL, GEMINI_SAFETY_SETTINGS
 from core.socket_handler import WebSocketHandler
 from core.logging_handler import WebSocketLoggingHandler
-from core.stdout_capture import StdoutInterceptor
 from api.routes import router as api_router
 from tools.base_tools import human_input_store
 
@@ -68,10 +67,6 @@ async def websocket_handler(websocket: WebSocket):
                 root_logger.addHandler(log_handler)
                 # Ensure level is INFO or DEBUG
                 root_logger.setLevel(logging.INFO)
-
-                # Initialize Stdout Interceptor for Raw Terminal Output
-                stdout_interceptor = StdoutInterceptor(websocket, loop)
-                stdout_interceptor.start()
 
                 try:
                     # Create Agents & Tasks
@@ -135,7 +130,6 @@ async def websocket_handler(websocket: WebSocket):
                 finally:
                     # Remove the handler to avoid duplicates or leaks
                     root_logger.removeHandler(log_handler)
-                    stdout_interceptor.stop()
 
             elif data.get("action") == "HUMAN_RESPONSE":
                 human_input_store[data["requestId"]] = data["content"]
