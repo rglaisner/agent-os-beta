@@ -4,7 +4,7 @@ import { Terminal, StopCircle, Activity } from 'lucide-react';
 interface LogEntry {
   timestamp: string;
   agentName: string;
-  type: 'THOUGHT' | 'ACTION' | 'OUTPUT' | 'SYSTEM' | 'ERROR' | 'STREAM';
+  type: 'THOUGHT' | 'ACTION' | 'OUTPUT' | 'SYSTEM' | 'ERROR' | 'STREAM' | 'TERMINAL';
   content: string;
 }
 
@@ -88,12 +88,15 @@ export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProp
                       log.type === 'ACTION' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                       log.type === 'ERROR' ? 'bg-red-50 text-red-600 border-red-100' :
                       log.type === 'OUTPUT' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      log.type === 'TERMINAL' ? 'bg-gray-800 text-gray-200 border-gray-700' :
                       'bg-slate-100 text-slate-500 border-slate-200'
                     }`}>
-                      {log.agentName}
+                      {log.type === 'TERMINAL' ? 'LOG' : log.agentName}
                     </span>
                   </div>
-                  {renderContent(log.content)}
+                  <div className={`${log.type === 'TERMINAL' ? 'font-mono text-xs text-slate-600' : ''}`}>
+                    {renderContent(log.content)}
+                  </div>
                 </div>
               </div>
             ))}
