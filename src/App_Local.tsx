@@ -34,6 +34,9 @@ interface Agent {
   avatar: string;
   color: string;
   type: 'ADK_SAMPLE' | 'CUSTOM' | 'SUGGESTED' | 'SYSTEM';
+  reasoning?: boolean;
+  max_reasoning_attempts?: number;
+  max_iter?: number;
 }
 
 interface LogEntry {

@@ -56,6 +56,13 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
         if uploaded_files:
             backstory += f"\n\nNOTICE: You have access to these files: {uploaded_files}. Use your tools to read them if needed."
 
+        # Configure reasoning and iteration limits
+        allow_reasoning = a_data.get('reasoning', False)
+        max_iter = a_data.get('max_iter', 25)
+        # Mapping max_reasoning_attempts to max_retry_limit as it's the closest analog for "attempts"
+        max_retry_limit = a_data.get('max_reasoning_attempts', 2)
+
+        # Standard CrewAI Agent creation
         agent = Agent(
             role=a_data['role'],
             goal=a_data['goal'],
@@ -63,7 +70,10 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
             tools=tools,
             llm=llm,
             callbacks=[WebSocketHandler(websocket, mission_id)],
-            verbose=True
+            verbose=True,
+            max_iter=max_iter,
+            max_retry_limit=max_retry_limit,
+            allow_delegation=allow_reasoning
         )
         agents_map[a_data['id']] = agent
 
