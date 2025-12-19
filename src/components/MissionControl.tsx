@@ -196,7 +196,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
       </div>
 
       {/* PLAN */}
-      <div className="flex-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0">
+      <div className="flex-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[400px]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (

@@ -97,6 +97,10 @@ class WebSocketHandler(BaseCallbackHandler):
         add_event(self.mission_id, "System", "OUTPUT", output[:500])
         self._safe_send({"type": "OUTPUT", "content": output, "agentName": "System"})
 
+    def __call__(self, *args, **kwargs):
+        """Make the handler callable to satisfy Pydantic/CrewAI validation."""
+        pass
+
     def _safe_send(self, data: Dict[str, Any]):
         try:
             asyncio.run(self.websocket.send_json(data))
