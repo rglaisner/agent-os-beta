@@ -1,8 +1,7 @@
 import datetime
 import json
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Float, Boolean, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 # Setup SQLite Database
 DATABASE_URL = "sqlite:///./agent_os.db"
@@ -50,7 +49,7 @@ class AgentCommunicationLog(Base):
     to_agent = Column(String, nullable=True)  # null if broadcast
     message_type = Column(String)  # 'DELEGATION', 'RESPONSE', 'BROADCAST', 'QUERY'
     content = Column(Text)
-    metadata = Column(JSON, nullable=True)  # Additional context
+    log_metadata = Column(JSON, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
     mission = relationship("Mission", back_populates="communications")
 
 class ScheduledMission(Base):
@@ -171,7 +170,7 @@ def add_communication_log(mission_id: int, from_agent: str, to_agent: str, messa
             to_agent=to_agent,
             message_type=message_type,
             content=content,
-            metadata=metadata
+            log_metadata=metadata  # Updated to use log_metadata instead of metadata
         )
         db.add(log)
         db.commit()
