@@ -1,20 +1,25 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Terminal, StopCircle, Activity } from 'lucide-react';
+import InterventionModal from './modals/InterventionModal';
 
 interface LogEntry {
   timestamp: string;
   agentName: string;
-  type: 'THOUGHT' | 'ACTION' | 'OUTPUT' | 'SYSTEM' | 'ERROR' | 'STREAM' | 'TERMINAL';
-  content: string;
+  type: 'THOUGHT' | 'ACTION' | 'OUTPUT' | 'SYSTEM' | 'ERROR' | 'STREAM' | 'TERMINAL' | 'INTERVENTION_REQUIRED';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  content: any; // Can be string or object
+  requestId?: string;
 }
 
 interface LiveMonitorProps {
   logs: LogEntry[];
   isRunning: boolean;
   onStop: () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onHumanResponse?: (requestId: string, content: any) => void;
 }
 
-export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProps) {
+export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }: LiveMonitorProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   // Extract images from logs
@@ -31,7 +36,28 @@ export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProp
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  const renderContent = (content: string) => {
+  const [activeIntervention, setActiveIntervention] = useState<LogEntry | null>(null);
+
+  // Check for new interventions
+  useEffect(() => {
+      const lastLog = logs[logs.length - 1];
+      if (lastLog && lastLog.type === 'INTERVENTION_REQUIRED') {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setActiveIntervention(lastLog);
+      }
+  }, [logs]);
+
+  const handleInterventionResponse = (requestId: string, action: 'PROCEED' | 'IGNORE' | 'RETRY' | 'CANCEL') => {
+      if (onHumanResponse) {
+          onHumanResponse(requestId, { action });
+      }
+      setActiveIntervention(null);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderContent = (content: any) => {
+    if (typeof content !== 'string') return JSON.stringify(content);
+
     // Check for image URL
     const imgMatch = content.match(/(\/static\/plots\/[a-zA-Z0-9_]+\.png)/);
     if (imgMatch) {
@@ -52,7 +78,16 @@ export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProp
   };
 
   return (
-    <div className="flex h-full bg-white text-sm">
+    <div className="flex h-full bg-white text-sm relative">
+      {/* Intervention Modal */}
+      {activeIntervention && (
+          <InterventionModal
+            requestId={activeIntervention.requestId || ''}
+            data={activeIntervention.content}
+            onResponse={handleInterventionResponse}
+          />
+      )}
+
       {/* Main Log Area */}
       <div className="flex-1 flex flex-col border-r border-slate-200">
           <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
@@ -76,7 +111,7 @@ export default function LiveMonitor({ logs, isRunning, onStop }: LiveMonitorProp
                 Ready to initialize mission...
               </div>
             )}
-            {logs.map((log, i) => (
+            {logs.filter(l => l.type !== 'INTERVENTION_REQUIRED').map((log, i) => (
               <div key={i} className="flex gap-4 animate-in fade-in duration-300 group">
                 <span className="text-slate-400 text-[10px] shrink-0 pt-1 select-none w-12 text-right">
                     {log.timestamp.split('T')[1]?.split('.')[0] || '00:00:00'}
