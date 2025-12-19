@@ -7,7 +7,14 @@ import MissionHistory from './components/MissionHistory';
 import KnowledgeBase from './components/KnowledgeBase';
 import { DEFAULT_AGENTS, DEFAULT_TOOLS, type Agent, type PlanStep } from './constants';
 
-interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
+interface LogEntry {
+    timestamp: string;
+    agentName: string;
+    type: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    content: any;
+    requestId?: string;
+}
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
 export default function AgentPlatform() {
@@ -41,6 +48,23 @@ export default function AgentPlatform() {
   }, []);
 
   const stopSimulation = () => { if (wsRef.current) wsRef.current.close(); setIsRunning(false); };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleHumanResponse = (requestId: string, content: any) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+              action: "HUMAN_RESPONSE",
+              requestId,
+              content
+          }));
+          setLogs(p => [...p, {
+              timestamp: new Date().toISOString(),
+              agentName: 'System',
+              type: 'SYSTEM',
+              content: `User intervention: ${content.action}`
+          }]);
+      }
+  };
 
   // Updated to accept files and process type
   const runOrchestratedSimulation = async (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => {
@@ -125,7 +149,9 @@ export default function AgentPlatform() {
                 <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} onUpdateAgent={updateAgent} />
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'MONITOR' ? 'flex' : 'hidden'}`}>
-                <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
+                <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm">
+                    <LiveMonitor logs={logs as any} isRunning={isRunning} onStop={stopSimulation} onHumanResponse={handleHumanResponse} />
+                </div>
 
                 {/* Final Output Box */}
                 {finalOutput && (
