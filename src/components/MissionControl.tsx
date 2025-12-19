@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
-import { Agent, PlanStep, PlanResponse } from '../constants'; // Import shared types
+import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // Import shared types
 
 interface MissionControlProps {
   agents: Agent[];
@@ -10,10 +10,10 @@ interface MissionControlProps {
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
-  onAgentsChange: (agents: Agent[]) => void; // Add this prop
+  onAgentsChange?: (agents: Agent[]) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent, onAgentsChange }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
@@ -22,7 +22,6 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
-  const [reasoning, setReasoning] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
 
   // Agent Editor State
@@ -59,7 +58,6 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     if (!goal) return;
     setIsPlanning(true);
     setError(null);
-    setReasoning(null);
     setIsModified(false);
 
     try {
@@ -139,9 +137,9 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
   };
 
   return (
-    <div className="flex flex-col gap-6 h-full">
+    <div className="flex flex-col gap-5 h-full">
       {/* GOAL */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm shrink-0">
         <label className="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider flex items-center gap-2 w-max group relative cursor-help">
             Mission Goal
             <Info className="w-4 h-4 text-slate-400" />
@@ -152,8 +150,8 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
             placeholder="Describe your mission in detail... (e.g. 'Analyze the attached CSV file and summarize key financial trends for Q3')"
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all min-h-[120px] resize-y"
-            rows={4}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all min-h-[100px] resize-y"
+            rows={3}
           />
           <div className="flex justify-end">
              <button
@@ -169,9 +167,9 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
         {error && <p className="text-red-500 text-sm mt-3 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 shrink-0">
         {/* FILE UPLOAD */}
-        <div className="flex-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
            <div className="flex justify-between items-center mb-4">
                <label className="text-sm font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider">
                   <Paperclip className="w-4 h-4" /> Attachments
@@ -192,21 +190,21 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
                ))}
            </div>
 
-           <div className="relative group">
+           <div className="relative group flex-1 min-h-[60px]">
                <input
                   type="file"
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                />
-               <div className="w-full bg-slate-50 border-2 border-dashed border-slate-300 group-hover:border-indigo-400 group-hover:bg-indigo-50/30 rounded-lg py-6 text-center text-slate-500 text-sm transition-colors">
-                   <div className="flex justify-center mb-2"><Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-500"/></div>
-                   <span className="font-medium text-slate-600 group-hover:text-indigo-600">Click to upload</span> (PDF, Excel, CSV)
+               <div className="w-full h-full bg-slate-50 border-2 border-dashed border-slate-300 group-hover:border-indigo-400 group-hover:bg-indigo-50/30 rounded-lg flex flex-col items-center justify-center text-center text-slate-500 text-sm transition-colors p-2">
+                   <div className="flex justify-center mb-1"><Upload className="w-5 h-5 text-slate-400 group-hover:text-indigo-500"/></div>
+                   <span className="font-medium text-slate-600 group-hover:text-indigo-600 text-xs">Click to upload</span>
                </div>
            </div>
         </div>
 
         {/* PROCESS TYPE */}
-        <div className="w-1/3 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+        <div className="w-1/3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
             <label className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2 uppercase tracking-wider w-max group relative cursor-help">
                <Users className="w-4 h-4" /> Team Structure
                <Tooltip text="Choose how agents collaborate: linear steps or manager-led delegation." />
@@ -233,8 +231,8 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
       </div>
 
       {/* PLAN */}
-      <div className="flex-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[400px]">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (
             <button
@@ -249,7 +247,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
         </div>
 
         {isModified && (
-            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse">
+            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
                 <AlertTriangle className="w-4 h-4" />
                 Warning: Manual changes to the plan or agents may impact mission success. The Planner's optimization might be compromised.
             </div>
