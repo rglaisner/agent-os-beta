@@ -44,6 +44,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(api_router, prefix="/api")
 
 # --- WEBSOCKET ENDPOINT ---
+# Support both /ws and / for WebSocket connections
+# This ensures compatibility with different frontend configurations
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket_handler(websocket)
