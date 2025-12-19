@@ -8,10 +8,9 @@ from crewai_tools import (
     PDFSearchTool, DirectoryReadTool, CSVSearchTool, DOCXSearchTool,
     JSONSearchTool, BraveSearchTool, SerpApiGoogleSearchTool, RagTool
 )
-from langchain_experimental.tools import PythonREPLTool
 
 from core.socket_handler import WebSocketHandler
-from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_input_store
+from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_input_store, WrapperPythonREPLTool
 from tools.rag import KnowledgeBaseTool
 from tools.plotting import DataVisualizationTool
 from tools.custom_tool_manager import ToolCreatorTool, load_custom_tools
@@ -32,7 +31,7 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if "tool-scrape" in tool_ids: tools.append(ScrapeWebsiteTool())
     if "tool-youtube" in tool_ids: tools.append(YoutubeChannelSearchTool())
     if "tool-finance" in tool_ids: tools.append(CustomYahooFinanceTool())
-    if "tool-python" in tool_ids: tools.append(PythonREPLTool())
+    if "tool-python" in tool_ids: tools.append(WrapperPythonREPLTool())
     if "tool-rag" in tool_ids: tools.append(KnowledgeBaseTool())
     if "tool-plot" in tool_ids: tools.append(DataVisualizationTool())
     if "tool-builder" in tool_ids: tools.append(ToolCreatorTool())
@@ -113,7 +112,7 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
         role="Quality Control Engineer",
         goal="Constantly review the codebase for bugs and errors, and thoroughly review all modifications made by other agents.",
         backstory="You are a meticulous Quality Control Engineer. Your responsibility is to ensure the integrity of the codebase. You constantly scan for bugs and errors. Whenever another agent completes a task or modifies files, you shift your attention to review their work precisely. You never self-verify.",
-        tools=[DirectoryReadTool(directory='.'), FileReadTool(), PythonREPLTool()],
+        tools=[DirectoryReadTool(directory='.'), FileReadTool(), WrapperPythonREPLTool()],
         llm=llm,
         callbacks=[WebSocketHandler(websocket, mission_id)],
         verbose=True

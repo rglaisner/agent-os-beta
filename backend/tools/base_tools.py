@@ -33,3 +33,21 @@ class WebHumanInputTool(BaseTool):
             time.sleep(1)
 
         return self.human_input_store.pop(req_id)
+
+from langchain_experimental.tools import PythonREPLTool
+from pydantic import PrivateAttr
+
+class WrapperPythonREPLTool(BaseTool):
+    name: str = "python_repl"
+    description: str = "A Python shell. Use this to execute python commands. Input should be a valid python command. If you want to see the output of a value, you should print it out with `print(...)`."
+    _python_repl: PythonREPLTool = PrivateAttr()
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._python_repl = PythonREPLTool()
+
+    def _run(self, command: str) -> str:
+        try:
+            return self._python_repl.run(command)
+        except Exception as e:
+            return f"Error executing python code: {e}"

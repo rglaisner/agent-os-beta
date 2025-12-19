@@ -24,6 +24,20 @@ export interface Agent {
   max_iter?: number;
 }
 
+export interface PlanStep {
+  id: number;
+  instruction: string;
+  agentId: string;
+  trainingIterations?: number;
+}
+
+export interface PlanResponse {
+  plan: PlanStep[];
+  newAgents: Agent[];
+  agentConfigs?: Record<string, { reasoning: boolean, max_reasoning_attempts: number, max_iter: number }>;
+  narrative?: string;
+}
+
 export const DEFAULT_TOOLS: Tool[] = [
   {
     id: 'tool-search',
