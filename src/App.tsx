@@ -8,7 +8,16 @@ import KnowledgeBase from './components/KnowledgeBase';
 
 // --- TYPES ---
 interface Tool { id: string; name: string; description: string; }
-interface Agent { id: string; role: string; goal: string; backstory: string; toolIds: string[]; humanInput: boolean; }
+interface Agent {
+    id: string;
+    role: string;
+    goal: string;
+    backstory: string;
+    toolIds: string[];
+    humanInput: boolean;
+    max_rpm?: number;
+    memory?: boolean;
+}
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
 interface PlanStep { id: string; agentId: string; instruction: string; }
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
@@ -77,7 +86,9 @@ const DEFAULT_AGENTS: Agent[] = [
     goal: 'Perform deep analysis of large datasets',
     backstory: 'Specialized in big data analysis and pattern recognition',
     toolIds: ['tool-python'],
-    humanInput: false
+    humanInput: false,
+    max_rpm: 10,
+    memory: true
   },
   {
     id: 'agent-qc-eng',

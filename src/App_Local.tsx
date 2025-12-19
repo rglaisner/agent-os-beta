@@ -44,6 +44,8 @@ interface Agent {
   toolIds?: string[];
   humanInput?: boolean;
   type: 'ADK_SAMPLE' | 'CUSTOM' | 'SUGGESTED' | 'SYSTEM';
+  max_rpm?: number;
+  memory?: boolean;
 }
 
 interface LogEntry {
@@ -232,7 +234,9 @@ const DEFAULT_AGENTS: Agent[] = [
     toolIds: ['tool-python'],
     avatar: '📉',
     color: 'bg-indigo-600',
-    type: 'ADK_SAMPLE'
+    type: 'ADK_SAMPLE',
+    max_rpm: 10,
+    memory: true
   },
   {
     id: 'agent-qc-eng',
@@ -743,7 +747,12 @@ const CodeExport = ({ agents }: { agents: Agent[] }) => {
       const safeAgents = Array.isArray(agents) ? agents.filter(a => a.type !== 'SYSTEM') : [];
       const agentsCode = safeAgents.map(a => {
         const varName = a.name?.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'agent';
-        return `# ${a.name} (${a.type})\n${varName} = Agent(\n  role='${a.role?.replace(/'/g, "\\'") || ''}',\n  goal='${a.goal?.replace(/'/g, "\\'") || ''}',\n  backstory='${a.backstory?.replace(/'/g, "\\'") || ''}',\n  verbose=True,\n  allow_delegation=True,\n  llm=llm\n)\n`;
+        // Add max_rpm/memory if present
+        let extraParams = '';
+        if (a.max_rpm) extraParams += `,\n  max_rpm=${a.max_rpm}`;
+        if (a.memory !== undefined) extraParams += `,\n  memory=${a.memory}`;
+
+        return `# ${a.name} (${a.type})\n${varName} = Agent(\n  role='${a.role?.replace(/'/g, "\\'") || ''}',\n  goal='${a.goal?.replace(/'/g, "\\'") || ''}',\n  backstory='${a.backstory?.replace(/'/g, "\\'") || ''}',\n  verbose=True,\n  allow_delegation=True,\n  llm=llm${extraParams}\n)\n`;
       }).join('\n');
       const firstAgentName = safeAgents[0]?.name?.toLowerCase()?.replace(/[^a-z0-9]/g, '_') || 'agent_1';
       const tasksCode = `\n# --- TASKS ---\ntask1 = Task(\n  description='Execute mission goals.',\n  agent=${firstAgentName},\n  expected_output='Comprehensive output.'\n)\n`;
@@ -793,18 +802,7 @@ export default function AgentPlatform() {
           if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) {
-                  // Merge saved agents with default agents to ensure new defaults appear
-                  // We prioritize saved agents if they have same ID, but new defaults should be added if not present
-                  // Actually, if we just use saved, new defaults won't appear.
-                  // Strategy: Filter out defaults from saved, then append current defaults?
-                  // No, user might have deleted defaults.
-                  // Better: Just check if the *new* default agents are in the list.
-
-                  // For now, I'll force append the new agents if they are not present, or just let the user see what they had.
-                  // But the user requested "Create 3 agents", implying they should appear now.
-                  // If I return 'parsed', the new defaults won't be there if the user already visited the page.
-                  // I will construct a merged list.
-
+                  // Merge logic to ensure new defaults appear even if saved data exists
                   const existingIds = new Set(parsed.map((a: Agent) => a.id));
                   const newDefaults = DEFAULT_AGENTS.filter(a => !existingIds.has(a.id));
                   return [...parsed, ...newDefaults];
@@ -875,7 +873,9 @@ export default function AgentPlatform() {
         goal: a.goal, 
         backstory: a.backstory, 
         toolIds: a.toolIds || [], 
-        humanInput: a.humanInput 
+        humanInput: a.humanInput,
+        max_rpm: a.max_rpm, // Pass new field
+        memory: a.memory    // Pass new field
     })),
     plan: plan.steps.map(s => ({ 
         id: s.id, 
@@ -957,7 +957,7 @@ export default function AgentPlatform() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-indigo-500 selection:text-white">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-indigo-500 selection:text-white">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="flex-1 h-full overflow-hidden relative flex flex-col">

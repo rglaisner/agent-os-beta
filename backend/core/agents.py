@@ -82,15 +82,26 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
         if uploaded_files:
             backstory += f"\n\nNOTICE: You have access to these files: {uploaded_files}. Use your tools to read them if needed."
 
-        agent = Agent(
-            role=a_data['role'],
-            goal=a_data['goal'],
-            backstory=backstory,
-            tools=tools,
-            llm=llm,
-            callbacks=[WebSocketHandler(websocket, mission_id)],
-            verbose=True
-        )
+        # Extract optional advanced parameters
+        max_rpm = a_data.get('max_rpm') # None by default
+        memory = a_data.get('memory', True) # Default to True if not specified, or strictly follow data? CrewAI defaults memory=True usually.
+        # User specified "Memory: True" for one agent.
+
+        agent_kwargs = {
+            "role": a_data['role'],
+            "goal": a_data['goal'],
+            "backstory": backstory,
+            "tools": tools,
+            "llm": llm,
+            "callbacks": [WebSocketHandler(websocket, mission_id)],
+            "verbose": True,
+            "memory": memory
+        }
+
+        if max_rpm:
+            agent_kwargs["max_rpm"] = int(max_rpm)
+
+        agent = Agent(**agent_kwargs)
         agents_map[a_data['id']] = agent
 
     # QC Agent Injection
