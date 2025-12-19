@@ -25,6 +25,8 @@ if "OPENAI_API_KEY" not in os.environ:
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini/gemini-2.0-flash")
 MANAGER_MODEL = os.getenv("MANAGER_MODEL", "gemini/gemini-2.5-pro")
 
+WARNED_MISSING_KEYS = set()
+
 def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, file_paths: List[str]) -> List[Any]:
     tools = []
     # Standard
@@ -45,14 +47,16 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if "tool-brave" in tool_ids:
         if "BRAVE_API_KEY" in os.environ:
             tools.append(BraveSearchTool())
-        else:
+        elif "BRAVE_API_KEY" not in WARNED_MISSING_KEYS:
             print("Warning: BRAVE_API_KEY not found. BraveSearchTool skipped.")
+            WARNED_MISSING_KEYS.add("BRAVE_API_KEY")
 
     if "tool-serpapi" in tool_ids:
         if "SERPAPI_API_KEY" in os.environ:
             tools.append(SerpApiGoogleSearchTool())
-        else:
-             print("Warning: SERPAPI_API_KEY not found. SerpApiGoogleSearchTool skipped.")
+        elif "SERPAPI_API_KEY" not in WARNED_MISSING_KEYS:
+            print("Warning: SERPAPI_API_KEY not found. SerpApiGoogleSearchTool skipped.")
+            WARNED_MISSING_KEYS.add("SERPAPI_API_KEY")
 
     if "tool-rag-crew" in tool_ids: tools.append(RagTool())
 
