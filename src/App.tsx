@@ -73,50 +73,134 @@ export default function AgentPlatform() {
     setLogs([]);
     setFinalOutput(null); // Reset final output
     setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 }); // Reset Usage
-    try {
-        const ws = new WebSocket(backendUrl);
-        wsRef.current = ws;
-        ws.onopen = () => {
+    
+    const connectWebSocket = (): Promise<WebSocket> => {
+      return new Promise((resolve, reject) => {
+        try {
+          const ws = new WebSocket(backendUrl);
+          
+          ws.onopen = () => {
             ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
-        };
+            resolve(ws);
+          };
+          
+          ws.onerror = (error) => {
+            reject(new Error(`WebSocket connection error: ${error}`));
+          };
+          
+          // Set timeout for connection
+          setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) {
+              ws.close();
+              reject(new Error('WebSocket connection timeout'));
+            }
+          }, 10000); // 10 second timeout
+        } catch (e) {
+          reject(e);
+        }
+      });
+    };
+    
+    try {
+        const ws = await connectWebSocket();
+        wsRef.current = ws;
+        
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'HUMAN_INPUT_REQUEST') {
-                const response = prompt(`Agent asks: ${data.content}`);
-                ws.send(JSON.stringify({ action: "HUMAN_RESPONSE", requestId: data.requestId, content: response || "None" }));
-                return;
-            }
-
-            if (data.type === 'USAGE') {
-                setUsage(data.content);
-                return;
-            }
-
-            if (data.type === 'OUTPUT' && data.agentName === 'System') {
-                setFinalOutput(data.content);
-                // Also log it
-                setLogs(prev => [...prev, { timestamp: new Date().toISOString(), agentName: 'System', type: 'OUTPUT', content: data.content }]);
-                return;
-            }
-
-            setLogs(prev => {
-                // Streaming Logic: If STREAM, append to last log if it's also STREAM/THOUGHT from same agent
-                if (data.type === 'STREAM') {
-                    const last = prev[prev.length - 1];
-                    if (last && (last.type === 'THOUGHT' || last.type === 'STREAM') && last.agentName === data.agentName) {
-                        return [
-                            ...prev.slice(0, -1),
-                            { ...last, content: last.content + data.content, type: 'THOUGHT' } // Keep type as THOUGHT for display
-                        ];
-                    }
-                    // Start new stream
-                    return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: 'THOUGHT', content: data.content }];
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'HUMAN_INPUT_REQUEST') {
+                    // Use a non-blocking approach - store the request and let InterventionModal handle it
+                    // The prompt() call is handled in LiveMonitor via InterventionModal
+                    setLogs(prev => [...prev, {
+                        timestamp: new Date().toISOString(),
+                        agentName: data.agentName || 'System',
+                        type: 'HUMAN_INPUT_REQUEST',
+                        content: data.content,
+                        requestId: data.requestId
+                    }]);
+                    return;
                 }
-                return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: data.type, content: data.content }];
-            });
+
+                if (data.type === 'USAGE') {
+                    setUsage(data.content);
+                    return;
+                }
+
+                if (data.type === 'OUTPUT' && data.agentName === 'System') {
+                    setFinalOutput(data.content);
+                    // Also log it
+                    setLogs(prev => [...prev, { timestamp: new Date().toISOString(), agentName: 'System', type: 'OUTPUT', content: data.content }]);
+                    return;
+                }
+
+                if (data.type === 'ERROR') {
+                    setLogs(prev => [...prev, {
+                        timestamp: new Date().toISOString(),
+                        agentName: 'System',
+                        type: 'ERROR',
+                        content: data.content
+                    }]);
+                    return;
+                }
+
+                setLogs(prev => {
+                    // Streaming Logic: If STREAM, append to last log if it's also STREAM/THOUGHT from same agent
+                    if (data.type === 'STREAM') {
+                        const last = prev[prev.length - 1];
+                        if (last && (last.type === 'THOUGHT' || last.type === 'STREAM') && last.agentName === data.agentName) {
+                            return [
+                                ...prev.slice(0, -1),
+                                { ...last, content: last.content + data.content, type: 'THOUGHT' } // Keep type as THOUGHT for display
+                            ];
+                        }
+                        // Start new stream
+                        return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: 'THOUGHT', content: data.content }];
+                    }
+                    return [...prev, { timestamp: new Date().toISOString(), agentName: data.agentName || 'System', type: data.type, content: data.content }];
+                });
+            } catch (parseError) {
+                console.error('Failed to parse WebSocket message:', parseError);
+                setLogs(prev => [...prev, {
+                    timestamp: new Date().toISOString(),
+                    agentName: 'System',
+                    type: 'ERROR',
+                    content: `Failed to parse message: ${parseError}`
+                }]);
+            }
         };
-        ws.onclose = () => setIsRunning(false);
-    } catch (e) { console.error(e); setIsRunning(false); }
+        
+        ws.onclose = (event) => {
+            setIsRunning(false);
+            if (event.code !== 1000) { // Not a normal closure
+                setLogs(prev => [...prev, {
+                    timestamp: new Date().toISOString(),
+                    agentName: 'System',
+                    type: 'ERROR',
+                    content: `WebSocket closed unexpectedly (code: ${event.code})`
+                }]);
+            }
+        };
+        
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            setLogs(prev => [...prev, {
+                timestamp: new Date().toISOString(),
+                agentName: 'System',
+                type: 'ERROR',
+                content: 'WebSocket connection error occurred'
+            }]);
+        };
+    } catch (e) {
+        console.error('Failed to establish WebSocket connection:', e);
+        setLogs(prev => [...prev, {
+            timestamp: new Date().toISOString(),
+            agentName: 'System',
+            type: 'ERROR',
+            content: `Failed to connect: ${e instanceof Error ? e.message : String(e)}`
+        }]);
+        setIsRunning(false);
+    }
   };
 
   return (

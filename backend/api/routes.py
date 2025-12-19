@@ -38,16 +38,29 @@ async def upload_knowledge(file: UploadFile = File(...)):
         text = ""
         if file.filename.endswith(".pdf"):
             import pypdf
-            reader = pypdf.PdfReader(file_path)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
+            try:
+                reader = pypdf.PdfReader(file_path)
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+            except Exception as e:
+                raise HTTPException(400, f"Failed to read PDF: {str(e)}")
         else:
-            # Assume text/code
-            with open(file_path, "r", errors='ignore') as f:
-                text = f.read()
+            # Try UTF-8 first, then fallback to latin-1, then error
+            encodings = ['utf-8', 'latin-1', 'cp1252']
+            text = None
+            for encoding in encodings:
+                try:
+                    with open(file_path, "r", encoding=encoding) as f:
+                        text = f.read()
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if text is None:
+                raise HTTPException(400, "Could not decode file text. Please ensure file is UTF-8 encoded.")
 
         if not text.strip():
-            raise HTTPException(400, "Could not extract text from file.")
+            raise HTTPException(400, "Could not extract text from file or file is empty.")
 
         add_document_to_kb(text, file.filename)
         return {"status": "success", "message": f"Indexed {file.filename}"}
@@ -91,7 +104,7 @@ async def generate_plan(request: PlanRequest):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key: raise HTTPException(500, "Missing API Key")
 
-    # Using 1.5-flash as 2.5 is not yet standard/available in this SDK context
+    # Using gemini-2.0-flash for plan generation
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
 
     agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
