@@ -37,12 +37,11 @@ class MissionEvent(Base):
 # --- HELPER FUNCTIONS ---
 
 def init_db():
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"DB Error: {e}")
+    """Initialize the database tables."""
+    Base.metadata.create_all(bind=engine)
 
 def create_mission(goal: str):
+    """Create a new mission and return its ID."""
     db = SessionLocal()
     try:
         mission = Mission(goal=goal, status="RUNNING")
@@ -50,14 +49,14 @@ def create_mission(goal: str):
         db.commit()
         db.refresh(mission)
         return mission.id
-    except Exception as e:
+    except Exception:
         db.rollback()
-        print(f"DB Error: {e}")
-        return None
+        raise
     finally:
         db.close()
 
 def add_event(mission_id: int, agent_name: str, type: str, content: str):
+    """Add a new event to a mission."""
     db = SessionLocal()
     try:
         event = MissionEvent(
@@ -68,13 +67,14 @@ def add_event(mission_id: int, agent_name: str, type: str, content: str):
         )
         db.add(event)
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
-        print(f"DB Error: {e}")
+        raise
     finally:
         db.close()
 
 def update_mission_result(mission_id: int, result: str, tokens: int = 0, cost: float = 0.0, status: str = "COMPLETED"):
+    """Update the result and status of a mission."""
     db = SessionLocal()
     try:
         mission = db.query(Mission).filter(Mission.id == mission_id).first()
@@ -84,30 +84,26 @@ def update_mission_result(mission_id: int, result: str, tokens: int = 0, cost: f
             mission.total_tokens = tokens
             mission.estimated_cost = cost
             db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
-        print(f"DB Error: {e}")
+        raise
     finally:
         db.close()
 
 def get_missions(limit: int = 100):
+    """Retrieve a list of recent missions."""
     db = SessionLocal()
     try:
         missions = db.query(Mission).order_by(Mission.created_at.desc()).limit(limit).all()
         return missions
-    except Exception as e:
-        print(f"DB Error: {e}")
-        return []
     finally:
         db.close()
 
 def get_mission(mission_id: int):
+    """Retrieve a single mission by ID."""
     db = SessionLocal()
     try:
         mission = db.query(Mission).filter(Mission.id == mission_id).first()
         return mission
-    except Exception as e:
-        print(f"DB Error: {e}")
-        return None
     finally:
         db.close()

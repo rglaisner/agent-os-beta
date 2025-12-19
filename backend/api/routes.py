@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
 from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
 from pydantic import BaseModel
-from database import get_missions, get_mission
+from core.database import get_missions, get_mission
 
 router = APIRouter()
 

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List
 from fastapi import WebSocket
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
-from database import add_event
+from core.database import add_event
 
 class WebSocketHandler(BaseCallbackHandler):
     def __init__(self, websocket: WebSocket, mission_id: int, default_model: str = "default"):
