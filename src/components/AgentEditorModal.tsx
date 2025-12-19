@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Agent, DEFAULT_TOOLS } from '../constants';
+import { type Agent, DEFAULT_TOOLS } from '../constants';
 
 interface AgentEditorModalProps {
   agent: Agent;

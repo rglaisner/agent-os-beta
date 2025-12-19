@@ -5,10 +5,9 @@ import AgentCard from './components/AgentCard';
 import MissionControl from './components/MissionControl';
 import MissionHistory from './components/MissionHistory';
 import KnowledgeBase from './components/KnowledgeBase';
-import { DEFAULT_AGENTS, DEFAULT_TOOLS, type Agent } from './constants';
+import { DEFAULT_AGENTS, DEFAULT_TOOLS, type Agent, type PlanStep } from './constants';
 
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
-interface PlanStep { id: string; agentId: string; instruction: string; trainingIterations?: number; }
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
 export default function AgentPlatform() {
@@ -104,7 +103,7 @@ export default function AgentPlatform() {
       </header>
       <main className="container mx-auto p-4 flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
         {activeTab !== 'KNOWLEDGE' && (
-          <div className={`w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto ${activeTab === 'MONITOR' ? 'hidden lg:flex lg:opacity-50' : ''}`}>
+          <div className={`w-full lg:w-80 flex flex-col gap-4 overflow-y-auto ${activeTab === 'MONITOR' ? 'hidden lg:flex lg:opacity-50' : ''}`}>
              <div className="flex justify-between items-center px-1">
                  <h2 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Agents</h2>
                  <button onClick={addAgent} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors"><Plus className="w-4 h-4" /></button>
@@ -118,7 +117,7 @@ export default function AgentPlatform() {
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'MONITOR' ? 'flex' : 'hidden'}`}>
                 <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
-                <div className="h-64"><MissionHistory backendUrl={backendUrl} /></div>
+                <div className="h-48 flex-none"><MissionHistory backendUrl={backendUrl} /></div>
             </div>
             <div className={`flex-1 flex flex-col gap-4 h-full overflow-hidden ${activeTab === 'KNOWLEDGE' ? 'flex' : 'hidden'}`}>
                 <KnowledgeBase backendUrl={backendUrl} />

@@ -111,12 +111,12 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full p-1 overflow-y-auto">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 h-full p-1 overflow-y-auto">
       {/* LEFT COLUMN: Upload & Manual Entry */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         {/* Upload Zone */}
         <div
-          className={`bg-white p-6 rounded-xl border-2 border-dashed shadow-sm flex flex-col transition-colors relative group
+          className={`bg-white p-5 rounded-xl border-2 border-dashed shadow-sm flex flex-col transition-colors relative group
             ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -136,7 +136,7 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
         </div>
 
         {/* Manual Entry */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex-1">
             <h2 className="text-sm font-bold mb-4 flex items-center gap-2 text-slate-700 uppercase tracking-wider"><FileText className="w-4 h-4 text-indigo-500" /> Manual Entry</h2>
             <div className="flex flex-col gap-3">
                 <input
@@ -164,7 +164,7 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
       </div>
 
       {/* RIGHT COLUMN: Document Library */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-bold flex items-center gap-2 text-slate-700 uppercase tracking-wider"><Book className="w-4 h-4 text-indigo-500" /> Knowledge Base</h2>
         </div>
