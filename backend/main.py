@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 # Imports
 from database import init_db, create_mission, update_mission_result
 from core.agents import create_agents, create_tasks
+from core.socket_handler import WebSocketHandler
 from api.routes import router as api_router
 from tools.base_tools import human_input_store
 
@@ -74,9 +75,28 @@ async def websocket_handler(websocket: WebSocket):
 
                     if process_type == "hierarchical":
                         # Manager LLM - explicit model name
-                        crew_args["manager_llm"] = LLM(model="gemini/gemini-2.5-pro", temperature=0.7)
+                        manager_handler = WebSocketHandler(websocket, mission_id, default_model="gemini-2.5-pro")
+                        crew_args["manager_llm"] = LLM(
+                            model="gemini/gemini-2.5-pro",
+                            temperature=0.7,
+                            callbacks=[manager_handler]
+                        )
 
                     crew = Crew(**crew_args)
+
+                    # Training Phase
+                    train_iterations = 0
+                    if 'plan' in payload:
+                        for step in payload['plan']:
+                            if step.get('trainingIterations'):
+                                train_iterations = max(train_iterations, int(step['trainingIterations']))
+
+                    if train_iterations > 0:
+                        await websocket.send_json({"type": "SYSTEM", "content": f"Initiating Training Phase ({train_iterations} iterations)..."})
+                        # Create a unique filename for training data
+                        train_file = f"uploads/training_mission_{mission_id}.pkl"
+                        await asyncio.get_event_loop().run_in_executor(None, lambda: crew.train(n_iterations=train_iterations, filename=train_file))
+                        await websocket.send_json({"type": "SYSTEM", "content": "Training Complete. Starting Mission..."})
 
                     result = await asyncio.get_event_loop().run_in_executor(None, crew.kickoff)
                     update_mission_result(mission_id, str(result))

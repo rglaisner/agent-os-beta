@@ -3,7 +3,11 @@ import asyncio
 from typing import List, Dict, Any
 from fastapi import WebSocket
 from crewai import Agent, Task, Crew, Process, LLM
-from crewai_tools import SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool, PDFSearchTool, DirectoryReadTool
+from crewai_tools import (
+    SerperDevTool, FileReadTool, ScrapeWebsiteTool, YoutubeChannelSearchTool,
+    PDFSearchTool, DirectoryReadTool, CSVSearchTool, DOCXSearchTool,
+    JSONSearchTool, BraveSearchTool, SerpApiGoogleSearchTool, RagTool
+)
 from langchain_experimental.tools import PythonREPLTool
 
 from core.socket_handler import WebSocketHandler
@@ -11,6 +15,10 @@ from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_in
 from tools.rag import KnowledgeBaseTool
 from tools.plotting import DataVisualizationTool
 from tools.custom_tool_manager import ToolCreatorTool, load_custom_tools
+
+# Ensure OpenAI Key is set to avoid validation errors for tools that default to it
+if "OPENAI_API_KEY" not in os.environ:
+    os.environ["OPENAI_API_KEY"] = "NA"
 
 def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, file_paths: List[str]) -> List[Any]:
     tools = []
@@ -23,6 +31,25 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if "tool-rag" in tool_ids: tools.append(KnowledgeBaseTool())
     if "tool-plot" in tool_ids: tools.append(DataVisualizationTool())
     if "tool-builder" in tool_ids: tools.append(ToolCreatorTool())
+
+    # New Tools with safe initialization
+    if "tool-csv" in tool_ids: tools.append(CSVSearchTool())
+    if "tool-docx" in tool_ids: tools.append(DOCXSearchTool())
+    if "tool-json" in tool_ids: tools.append(JSONSearchTool())
+
+    if "tool-brave" in tool_ids:
+        if "BRAVE_API_KEY" in os.environ:
+            tools.append(BraveSearchTool())
+        else:
+            print("Warning: BRAVE_API_KEY not found. BraveSearchTool skipped.")
+
+    if "tool-serpapi" in tool_ids:
+        if "SERPAPI_API_KEY" in os.environ:
+            tools.append(SerpApiGoogleSearchTool())
+        else:
+             print("Warning: SERPAPI_API_KEY not found. SerpApiGoogleSearchTool skipped.")
+
+    if "tool-rag-crew" in tool_ids: tools.append(RagTool())
 
     # Human
     if human_enabled:
@@ -45,7 +72,6 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     return tools
 
 def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websocket: WebSocket, mission_id: int) -> Dict[str, Agent]:
-    os.environ["OPENAI_API_KEY"] = "NA" # CrewAI fix
     llm = LLM(model="gemini/gemini-2.0-flash", temperature=0.7)
 
     agents_map = {}
@@ -56,6 +82,13 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
         if uploaded_files:
             backstory += f"\n\nNOTICE: You have access to these files: {uploaded_files}. Use your tools to read them if needed."
 
+        # Configure reasoning and iteration limits
+        allow_reasoning = a_data.get('reasoning', False)
+        max_iter = a_data.get('max_iter', 25)
+        # Mapping max_reasoning_attempts to max_retry_limit as it's the closest analog for "attempts"
+        max_retry_limit = a_data.get('max_reasoning_attempts', 2)
+
+        # Standard CrewAI Agent creation
         agent = Agent(
             role=a_data['role'],
             goal=a_data['goal'],
@@ -63,7 +96,10 @@ def create_agents(agent_data_list: List[dict], uploaded_files: List[str], websoc
             tools=tools,
             llm=llm,
             callbacks=[WebSocketHandler(websocket, mission_id)],
-            verbose=True
+            verbose=True,
+            max_iter=max_iter,
+            max_retry_limit=max_retry_limit,
+            allow_delegation=allow_reasoning
         )
         agents_map[a_data['id']] = agent
 

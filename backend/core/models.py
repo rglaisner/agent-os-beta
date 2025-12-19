@@ -8,11 +8,15 @@ class AgentModel(BaseModel):
     backstory: str
     toolIds: List[str]
     humanInput: bool
+    reasoning: Optional[bool] = False
+    max_reasoning_attempts: Optional[int] = None
+    max_iter: Optional[int] = None
 
 class PlanStep(BaseModel):
     id: str
     agentId: str
     instruction: str
+    trainingIterations: Optional[int] = 0
 
 class PlanRequest(BaseModel):
     goal: str
@@ -22,3 +26,4 @@ class PlanRequest(BaseModel):
 class PlanResponse(BaseModel):
     plan: List[PlanStep]
     newAgents: List[AgentModel]
+    agentConfigs: Optional[dict] = None

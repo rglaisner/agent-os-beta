@@ -8,9 +8,19 @@ import KnowledgeBase from './components/KnowledgeBase';
 
 // --- TYPES ---
 interface Tool { id: string; name: string; description: string; }
-interface Agent { id: string; role: string; goal: string; backstory: string; toolIds: string[]; humanInput: boolean; }
+interface Agent {
+    id: string;
+    role: string;
+    goal: string;
+    backstory: string;
+    toolIds: string[];
+    humanInput: boolean;
+    reasoning?: boolean;
+    max_reasoning_attempts?: number;
+    max_iter?: number;
+}
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
-interface PlanStep { id: string; agentId: string; instruction: string; }
+interface PlanStep { id: string; agentId: string; instruction: string; trainingIterations?: number; }
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
 // --- RESTORED DEFAULTS ---
@@ -22,6 +32,12 @@ const DEFAULT_TOOLS: Tool[] = [
   { id: 'tool-rag', name: 'Knowledge Base', description: 'Search long-term memory.' },
   { id: 'tool-plot', name: 'Data Visualizer', description: 'Create Charts & Graphs.' },
   { id: 'tool-builder', name: 'Tool Builder', description: 'Create new tools from code.' },
+  { id: 'tool-csv', name: 'CSV Search', description: 'Search CSV content.' },
+  { id: 'tool-docx', name: 'DOCX Search', description: 'Search DOCX content.' },
+  { id: 'tool-json', name: 'JSON Search', description: 'Search JSON content.' },
+  { id: 'tool-brave', name: 'Brave Search', description: 'Search via Brave API.' },
+  { id: 'tool-serpapi', name: 'Google SerpApi', description: 'Google Search via SerpApi.' },
+  { id: 'tool-rag-crew', name: 'CrewAI RAG', description: 'CrewAI native RAG tool.' },
 ];
 
 const DEFAULT_AGENTS: Agent[] = [
@@ -42,27 +58,51 @@ const DEFAULT_AGENTS: Agent[] = [
     humanInput: false
   },
   {
-    id: 'agent-researcher',
-    role: 'Senior Researcher',
-    goal: 'Uncover detailed information',
-    backstory: 'You are an expert researcher at a top firm.',
-    toolIds: ['tool-search', 'tool-scrape', 'tool-python'],
+    id: 'agent-job-mapper',
+    role: 'Enterprise Job Architecture Mapper',
+    goal: 'Analyze enterprise-wide data files to suggest improvements and alignments serving 2 goals: alignment following business imperative and standardization using lightcast.io taxonomies.',
+    backstory: 'You are a top strategist with 20 years of experience in leading and conceptualizing large enterprise transformations. You have a passion for HR-related transformation and understand that it must be anticipated like business disruption.',
+    toolIds: ['tool-csv', 'tool-docx', 'tool-json'],
     humanInput: false
   },
   {
-    id: 'agent-analyst',
+    id: 'agent-role-mapper',
+    role: 'Role to Skill Mapper',
+    goal: 'Map out skill profiles from role information to power skills-enabled use-cases.',
+    backstory: 'You are a visionary with business and strategy acumen in HR. You understand the HR perspective to Skills as observing money in a bank, and the business perspective as applying that money to generate value.',
+    toolIds: ['tool-brave', 'tool-csv', 'tool-json', 'tool-rag-crew', 'tool-serpapi'],
+    humanInput: false
+  },
+  {
+    id: 'agent-xls-guru',
+    role: 'XLS File Guru',
+    goal: 'Read xls content and get other agents to understand all possible subtility from the content reading. You turn the content into something that makes sense.',
+    backstory: 'You are the spirit leader of the church of XLS. And you understand it all. And you can make sense of the content. Always. It has been your life over the past 50 years.',
+    toolIds: ['tool-brave', 'tool-csv'],
+    humanInput: false
+  },
+  {
+    id: 'agent-data-master',
     role: 'Data Analyst',
-    goal: 'Analyze data and find trends',
-    backstory: 'You specialize in reading spreadsheets and Python analysis.',
+    goal: 'Perform deep analysis of large datasets',
+    backstory: 'Specialized in big data analysis and pattern recognition',
     toolIds: ['tool-python'],
     humanInput: false
   },
   {
-    id: 'agent-writer',
-    role: 'Technical Writer',
-    goal: 'Write comprehensive reports',
-    backstory: 'You summarize complex data into clear reports.',
-    toolIds: [],
+    id: 'agent-qc-eng',
+    role: 'Software Quality Control Engineer',
+    goal: 'Create Perfect code, by analyzing the code that is given for errors',
+    backstory: 'You are a software engineer that specializes in checking code for errors. You have an eye for detail and a knack for finding hidden bugs. You check for missing imports, variable declarations, mismatched brackets and syntax errors. You also check for security vulnerabilities, and logic errors',
+    toolIds: ['tool-python'],
+    humanInput: false
+  },
+  {
+    id: 'agent-chief-qc',
+    role: 'Chief Quality Engineering',
+    goal: 'Ensure that the code does the job that it is supposed to do',
+    backstory: 'You feel that programmers always do only half the job, so you are super dedicate to make high quality code.',
+    toolIds: ['tool-python'],
     humanInput: false
   }
 ];
@@ -144,7 +184,7 @@ export default function AgentPlatform() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col">
+    <div className="h-screen bg-slate-950 text-slate-200 font-sans flex flex-col overflow-hidden">
       <header className="h-16 border-b border-slate-800 bg-slate-950/50 flex items-center px-4 justify-between sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
@@ -169,7 +209,7 @@ export default function AgentPlatform() {
           </div>
         )}
         <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
-            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} />}
+            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} onUpdateAgent={updateAgent} />}
             {activeTab === 'MONITOR' && (
                 <>
                     <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>
@@ -181,20 +221,18 @@ export default function AgentPlatform() {
       </main>
 
       {/* Token & Cost Display Footer */}
-      {(isRunning || usage.totalCost > 0) && (
-        <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0">
-             <div className="flex items-center gap-1.5 text-slate-400" title="Estimated Input/Output Tokens">
-                 <Zap className="w-3 h-3 text-yellow-500" />
-                 <span>IN: {usage.inputTokens.toLocaleString()}</span>
-                 <span className="text-slate-600">|</span>
-                 <span>OUT: {usage.outputTokens.toLocaleString()}</span>
-             </div>
-             <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
-                 <Coins className="w-3 h-3" />
-                 <span>${usage.totalCost.toFixed(5)}</span>
-             </div>
-        </footer>
-      )}
+      <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0">
+            <div className="flex items-center gap-1.5 text-slate-400" title="Estimated Input/Output Tokens">
+                <Zap className="w-3 h-3 text-yellow-500" />
+                <span>IN: {usage.inputTokens.toLocaleString()}</span>
+                <span className="text-slate-600">|</span>
+                <span>OUT: {usage.outputTokens.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
+                <Coins className="w-3 h-3" />
+                <span>${usage.totalCost.toFixed(5)}</span>
+            </div>
+      </footer>
     </div>
   );
 }

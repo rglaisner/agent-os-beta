@@ -22,6 +22,14 @@ import {
 
 // --- Types & Interfaces ---
 
+interface Tool {
+  id: string;
+  name: string;
+  description: string;
+  pythonClass?: string;
+  pythonImport?: string;
+}
+
 interface Agent {
   id: string;
   name: string;
@@ -30,17 +38,12 @@ interface Agent {
   backstory: string;
   avatar: string;
   color: string;
-  type: 'ADK_SAMPLE' | 'CUSTOM' | 'SUGGESTED' | 'SYSTEM';
   toolIds?: string[];
   humanInput?: boolean;
-}
-
-interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  pythonClass: string;
-  pythonImport: string;
+  type: 'ADK_SAMPLE' | 'CUSTOM' | 'SUGGESTED' | 'SYSTEM';
+  reasoning?: boolean;
+  max_reasoning_attempts?: number;
+  max_iter?: number;
 }
 
 interface LogEntry {
@@ -111,6 +114,48 @@ const DEFAULT_TOOLS: Tool[] = [
     description: 'Read local files (System Tool).',
     pythonClass: 'FileReadTool',
     pythonImport: 'from crewai_tools import FileReadTool'
+  },
+  {
+    id: 'tool-csv',
+    name: 'CSV Search',
+    description: 'Search CSV content.',
+    pythonClass: 'CSVSearchTool',
+    pythonImport: 'from crewai_tools import CSVSearchTool'
+  },
+  {
+    id: 'tool-docx',
+    name: 'DOCX Search',
+    description: 'Search DOCX content.',
+    pythonClass: 'DOCXSearchTool',
+    pythonImport: 'from crewai_tools import DOCXSearchTool'
+  },
+  {
+    id: 'tool-json',
+    name: 'JSON Search',
+    description: 'Search JSON content.',
+    pythonClass: 'JSONSearchTool',
+    pythonImport: 'from crewai_tools import JSONSearchTool'
+  },
+  {
+    id: 'tool-brave',
+    name: 'Brave Search',
+    description: 'Search via Brave API.',
+    pythonClass: 'BraveSearchTool',
+    pythonImport: 'from crewai_tools import BraveSearchTool'
+  },
+  {
+    id: 'tool-serpapi',
+    name: 'Google SerpApi',
+    description: 'Google Search via SerpApi.',
+    pythonClass: 'SerpApiGoogleSearchTool',
+    pythonImport: 'from crewai_tools import SerpApiGoogleSearchTool'
+  },
+  {
+    id: 'tool-rag-crew',
+    name: 'CrewAI RAG',
+    description: 'CrewAI native RAG tool.',
+    pythonClass: 'RagTool',
+    pythonImport: 'from crewai_tools import RagTool'
   }
 ];
 
@@ -143,6 +188,72 @@ const DEFAULT_AGENTS: Agent[] = [
     backstory: 'You live for user satisfaction. The thought of a disappointed user fuels your boundless energy. You do not just patch bugs; you reimagine the experience. You take every complaint as a personal challenge to deliver a UI that is not just functional, but delightful and awe-inspiring.',
     avatar: '✨',
     color: 'bg-fuchsia-600',
+    type: 'ADK_SAMPLE'
+  },
+  {
+    id: 'agent-job-mapper',
+    name: 'Job Mapper',
+    role: 'Enterprise Job Architecture Mapper',
+    goal: 'Analyze enterprise-wide data files to suggest improvements and alignments serving 2 goals: alignment following business imperative and standardization using lightcast.io taxonomies.',
+    backstory: 'You are a top strategist with 20 years of experience in leading and conceptualizing large enterprise transformations. You have a passion for HR-related transformation and understand that it must be anticipated like business disruption.',
+    toolIds: ['tool-csv', 'tool-docx', 'tool-json'],
+    avatar: '📊',
+    color: 'bg-blue-500',
+    type: 'ADK_SAMPLE'
+  },
+  {
+    id: 'agent-role-mapper',
+    name: 'Role Mapper',
+    role: 'Role to Skill Mapper',
+    goal: 'Map out skill profiles from role information to power skills-enabled use-cases.',
+    backstory: 'You are a visionary with business and strategy acumen in HR. You understand the HR perspective to Skills as observing money in a bank, and the business perspective as applying that money to generate value.',
+    toolIds: ['tool-brave', 'tool-csv', 'tool-json', 'tool-rag-crew', 'tool-serpapi'],
+    avatar: '🎯',
+    color: 'bg-purple-600',
+    type: 'ADK_SAMPLE'
+  },
+  {
+    id: 'agent-xls-guru',
+    name: 'XLS Guru',
+    role: 'XLS File Guru',
+    goal: 'Read xls content and get other agents to understand all possible subtility from the content reading. You turn the content into something that makes sense.',
+    backstory: 'You are the spirit leader of the church of XLS. And you understand it all. And you can make sense of the content. Always. It has been your life over the past 50 years.',
+    toolIds: ['tool-brave', 'tool-csv'],
+    avatar: '📑',
+    color: 'bg-green-600',
+    type: 'ADK_SAMPLE'
+  },
+  {
+    id: 'agent-data-master',
+    name: 'Data Master',
+    role: 'Data Analyst',
+    goal: 'Perform deep analysis of large datasets',
+    backstory: 'Specialized in big data analysis and pattern recognition',
+    toolIds: ['tool-python'],
+    avatar: '📉',
+    color: 'bg-indigo-600',
+    type: 'ADK_SAMPLE'
+  },
+  {
+    id: 'agent-qc-eng',
+    name: 'QC Engineer',
+    role: 'Software Quality Control Engineer',
+    goal: 'Create Perfect code, by analyzing the code that is given for errors',
+    backstory: 'You are a software engineer that specializes in checking code for errors. You have an eye for detail and a knack for finding hidden bugs. You check for missing imports, variable declarations, mismatched brackets and syntax errors. You also check for security vulnerabilities, and logic errors',
+    toolIds: ['tool-python'],
+    avatar: '🛠️',
+    color: 'bg-orange-500',
+    type: 'ADK_SAMPLE'
+  },
+  {
+    id: 'agent-chief-qc',
+    name: 'Chief QC',
+    role: 'Chief Quality Engineering',
+    goal: 'Ensure that the code does the job that it is supposed to do',
+    backstory: 'You feel that programmers always do only half the job, so you are super dedicate to make high quality code.',
+    toolIds: ['tool-python'],
+    avatar: '🛡️',
+    color: 'bg-red-700',
     type: 'ADK_SAMPLE'
   },
   {
@@ -683,7 +794,21 @@ export default function AgentPlatform() {
           if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) {
-                  return parsed;
+                  // Merge saved agents with default agents to ensure new defaults appear
+                  // We prioritize saved agents if they have same ID, but new defaults should be added if not present
+                  // Actually, if we just use saved, new defaults won't appear.
+                  // Strategy: Filter out defaults from saved, then append current defaults?
+                  // No, user might have deleted defaults.
+                  // Better: Just check if the *new* default agents are in the list.
+
+                  // For now, I'll force append the new agents if they are not present, or just let the user see what they had.
+                  // But the user requested "Create 3 agents", implying they should appear now.
+                  // If I return 'parsed', the new defaults won't be there if the user already visited the page.
+                  // I will construct a merged list.
+
+                  const existingIds = new Set(parsed.map((a: Agent) => a.id));
+                  const newDefaults = DEFAULT_AGENTS.filter(a => !existingIds.has(a.id));
+                  return [...parsed, ...newDefaults];
               }
           }
       } catch (e) {
@@ -834,7 +959,7 @@ export default function AgentPlatform() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-indigo-500 selection:text-white">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-indigo-500 selection:text-white">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="flex-1 h-full overflow-hidden relative flex flex-col">
@@ -846,20 +971,18 @@ export default function AgentPlatform() {
         </div>
 
         {/* Token & Cost Display Footer */}
-        {(isRunning || usage.totalCost > 0) && (
-            <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0 text-slate-400">
-                <div className="flex items-center gap-1.5" title="Estimated Input/Output Tokens">
-                    <Zap className="w-3 h-3 text-yellow-500" />
-                    <span>IN: {usage.inputTokens.toLocaleString()}</span>
-                    <span className="text-slate-600">|</span>
-                    <span>OUT: {usage.outputTokens.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
-                    <Coins className="w-3 h-3" />
-                    <span>${usage.totalCost.toFixed(5)}</span>
-                </div>
-            </footer>
-        )}
+        <footer className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-end px-4 gap-4 text-xs font-mono shrink-0 text-slate-400">
+            <div className="flex items-center gap-1.5" title="Estimated Input/Output Tokens">
+                <Zap className="w-3 h-3 text-yellow-500" />
+                <span>IN: {usage.inputTokens.toLocaleString()}</span>
+                <span className="text-slate-600">|</span>
+                <span>OUT: {usage.outputTokens.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-900/20 px-2 py-0.5 rounded">
+                <Coins className="w-3 h-3" />
+                <span>${usage.totalCost.toFixed(5)}</span>
+            </div>
+        </footer>
       </main>
     </div>
   );

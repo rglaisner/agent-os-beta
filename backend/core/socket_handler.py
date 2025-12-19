@@ -7,9 +7,10 @@ from langchain_core.outputs import LLMResult
 from database import add_event
 
 class WebSocketHandler(BaseCallbackHandler):
-    def __init__(self, websocket: WebSocket, mission_id: int):
+    def __init__(self, websocket: WebSocket, mission_id: int, default_model: str = "default"):
         self.websocket = websocket
         self.mission_id = mission_id
+        self.default_model = default_model
         # Token Tracking (Global accumulators for display)
         self.input_tokens = 0
         self.output_tokens = 0
@@ -56,7 +57,7 @@ class WebSocketHandler(BaseCallbackHandler):
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         # Determine the model used for this call
         # Try to find 'manager' tag or other identifiers
-        model_name = "default"
+        model_name = self.default_model
         tags = kwargs.get('tags') or []
         if 'manager' in tags:
              model_name = "gemini-2.5-pro"
