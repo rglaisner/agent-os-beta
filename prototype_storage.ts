@@ -11,6 +11,7 @@ const localStorageMock = (() => {
 })();
 
 // Define global localStorage for the test
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (global as any).localStorage = localStorageMock;
 
 const DEFAULT_AGENTS = [{ id: 'default', name: 'Default Agent' }];
@@ -33,6 +34,7 @@ function initAgents() {
     return DEFAULT_AGENTS;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function saveAgents(agents: any[]) {
     try {
         localStorage.setItem('agent_os_library', JSON.stringify(agents));

@@ -5,8 +5,6 @@ import {
   Activity, 
   Play, 
   Code, 
-  LayoutDashboard,
-  Bot,
   Download,
   Sparkles,
   BrainCircuit,
@@ -15,7 +13,6 @@ import {
   List,
   Palette,
   Layout,
-  Save,
   StopCircle,
   LifeBuoy,
   UserPlus,
@@ -374,7 +371,7 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
   );
 };
 
-const AgentLab = ({ agents, setAgents }: { agents: Agent[], setAgents: any }) => {
+const AgentLab = ({ agents, setAgents }: { agents: Agent[], setAgents: (agents: Agent[]) => void }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<Partial<Agent>>({});
 
@@ -432,7 +429,7 @@ const AgentLab = ({ agents, setAgents }: { agents: Agent[], setAgents: any }) =>
   );
 };
 
-const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setAgents: any, onLaunch: (plan: ExecutionPlan, context?: string) => void }) => {
+const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setAgents: (agents: Agent[]) => void, onLaunch: (plan: ExecutionPlan, processType: 'sequential' | 'hierarchical', context?: string) => void }) => {
   const [goal, setGoal] = useState("Describe anything...");
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [isPlanning, setIsPlanning] = useState(false);
@@ -490,7 +487,7 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
 
       // Logic to add new agents
       if (parsed.suggestedNewAgents && parsed.suggestedNewAgents.length > 0) {
-          const newAgents = parsed.suggestedNewAgents.map((a: any) => ({
+          const newAgents = parsed.suggestedNewAgents.map((a: Agent) => ({
               ...a,
               id: `suggested-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               type: 'SUGGESTED',
@@ -502,7 +499,7 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
       }
 
       // Map steps to agent IDs (handling new agents by name matching)
-      const initializedSteps = parsed.steps.map((s: any) => {
+      const initializedSteps = parsed.steps.map((s: ExecutionStep) => {
           const matchedAgent = currentAgents.find(a => a.id === s.agentId || a.name === s.agentId);
           return { 
               ...s, 
@@ -605,7 +602,7 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
     </div>
     <select 
         value={processType}
-        onChange={(e) => setProcessType(e.target.value as any)}
+        onChange={(e) => setProcessType(e.target.value as 'sequential' | 'hierarchical')}
         className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500"
     >
         <option value="sequential">Sequential</option>
@@ -640,7 +637,7 @@ const LiveMonitor = ({ logs, artifacts, isRunning, onStop }: { logs: LogEntry[],
     if (artifacts.length > 0 && isRunning && activeView === 'LOGS') {
         // User notification could be added here
     }
-  }, [artifacts.length]);
+  }, [artifacts.length, isRunning, activeView]);
 
   return (
     <div className="h-full flex flex-col bg-slate-950 text-slate-300 font-mono text-sm border-l border-slate-800">
@@ -789,6 +786,7 @@ const CodeExport = ({ agents }: { agents: Agent[] }) => {
 
 export default function AgentPlatform() {
   const [activeTab, setActiveTab] = useState('mission');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [tools, setTools] = useState<Tool[]>(DEFAULT_TOOLS);
   const [agents, setAgents] = useState<Agent[]>(() => {
       try {
@@ -929,7 +927,7 @@ export default function AgentPlatform() {
             id: `msg-${Date.now()}-${Math.random()}`,
             timestamp: Date.now(),
             agentName: msg.agentName || 'System',
-            type: (msg.type as any) || 'THOUGHT',
+            type: (msg.type as LogEntry['type']) || 'THOUGHT',
             content: msg.content
         };
 
@@ -952,9 +950,10 @@ export default function AgentPlatform() {
         setIsRunning(false);
       };
 
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      setLogs(p => [...p, { id: 'err-init', timestamp: Date.now(), agentName: 'System', type: 'ERROR', content: `Connection Failed: ${e.message}` }]);
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      setLogs(p => [...p, { id: 'err-init', timestamp: Date.now(), agentName: 'System', type: 'ERROR', content: `Connection Failed: ${errorMessage}` }]);
       setIsRunning(false);
     }
   };

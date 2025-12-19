@@ -49,12 +49,11 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
     setLoading(false);
   };
 
-  const handleFileIngest = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files?.length) return;
+  const handleFileIngest = async (file: File) => {
       setLoading(true);
 
       const fd = new FormData();
-      fd.append("file", e.target.files[0]);
+      fd.append("file", file);
       try {
           await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
           fetchDocs();
@@ -92,6 +91,24 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
       alert("Upload failed");
     }
     setLoading(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleFileIngest(e.dataTransfer.files[0]);
+      }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
   };
 
   const filteredDocuments = documents.filter(doc =>
@@ -184,6 +201,9 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
                                     <FileText className="w-5 h-5 text-indigo-500" />
                                 </div>
                                 <span className="font-medium text-sm text-slate-700 truncate flex-1">{doc}</span>
+                                <button onClick={() => handleDelete(doc)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                </button>
                             </div>
                         ))
                     )}
