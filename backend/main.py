@@ -55,10 +55,6 @@ async def websocket_handler(websocket: WebSocket):
                     await websocket.send_json({"type": "ERROR", "content": "Missing API Key"})
                     continue
                 os.environ["GOOGLE_API_KEY"] = api_key
-                # CrewAI workaround: some internal tools check for OPENAI_API_KEY.
-                # Setting it to "NA" prevents validation errors when using other providers.
-                if "OPENAI_API_KEY" not in os.environ:
-                    os.environ["OPENAI_API_KEY"] = "NA"
                 
                 # Setup Logging Handler for WebSocket
                 loop = asyncio.get_running_loop()
@@ -91,11 +87,21 @@ async def websocket_handler(websocket: WebSocket):
                     await websocket.send_json({"type": "SYSTEM", "content": f"Mission Started ({process_type.upper()})"})
 
                     # Crew Configuration
+                    # Define Embedder Config (ensuring defaults to Google)
+                    embedder_config = {
+                        "provider": "google-generativeai",
+                        "config": {
+                            "model": "models/embedding-001",
+                            "api_key": api_key
+                        }
+                    }
+
                     crew_args = {
                         "agents": list(agents_map.values()),
                         "tasks": tasks,
                         "process": Process.hierarchical if process_type == "hierarchical" else Process.sequential,
-                        "verbose": True
+                        "verbose": True,
+                        "embedder": embedder_config
                     }
 
                     if process_type == "hierarchical":

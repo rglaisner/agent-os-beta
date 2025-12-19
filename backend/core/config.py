@@ -29,10 +29,3 @@ def check_api_key(key_name: str, tool_name: str) -> bool:
         WARNED_MISSING_KEYS.add(key_name)
     return False
 
-def ensure_openai_key():
-    """
-    Ensure OpenAI Key is set to avoid validation errors for tools that default to it.
-    This is a known workaround for CrewAI.
-    """
-    if "OPENAI_API_KEY" not in os.environ:
-        os.environ["OPENAI_API_KEY"] = "NA"
