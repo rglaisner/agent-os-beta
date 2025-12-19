@@ -1,3 +1,14 @@
+"""
+Alternative execution flow with supervisor-based quality control.
+
+NOTE: This module defines an alternative execution flow (run_mission_loop) that uses
+a supervisor LLM to grade agent outputs. However, it is currently NOT USED by the
+main application, which uses CrewAI's built-in execution flow instead.
+
+This code is kept for potential future use or as a reference implementation.
+To use this flow, modify backend/api/websocket.py to import and call run_mission_loop
+instead of using Crew.kickoff() directly.
+"""
 import asyncio
 import json
 from typing import List, Dict, Any, Optional

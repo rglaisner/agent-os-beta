@@ -15,7 +15,7 @@ class Mission(Base):
     __tablename__ = "missions"
     
     id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     status = Column(String)  # 'RUNNING', 'COMPLETED', 'FAILED'
     goal = Column(Text)
     result = Column(Text, nullable=True)
@@ -28,7 +28,7 @@ class MissionEvent(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     mission_id = Column(Integer, ForeignKey("missions.id"))
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     agent_name = Column(String)
     type = Column(String)
     content = Column(Text)
@@ -84,6 +84,8 @@ def update_mission_result(mission_id: int, result: str, tokens: int = 0, cost: f
             mission.total_tokens = tokens
             mission.estimated_cost = cost
             db.commit()
+        else:
+            raise ValueError(f"Mission with id {mission_id} not found")
     except Exception:
         db.rollback()
         raise

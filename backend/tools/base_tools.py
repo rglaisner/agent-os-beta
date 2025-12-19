@@ -25,12 +25,40 @@ class WebHumanInputTool(BaseTool):
         if not self.websocket:
             return "Error: No WebSocket connection available for human input."
 
-        req_id = f"req_{int(time.time())}"
-        asyncio.run(self.websocket.send_json({"type": "HUMAN_INPUT_REQUEST", "requestId": req_id, "content": question}))
+        req_id = f"req_{int(time.time() * 1000)}"  # Use milliseconds for better uniqueness
+        
+        # Send request via websocket (handle both sync and async contexts)
+        try:
+            loop = asyncio.get_running_loop()
+            # If we're in an async context, use run_coroutine_threadsafe
+            future = asyncio.run_coroutine_threadsafe(
+                self.websocket.send_json({
+                    "type": "HUMAN_INPUT_REQUEST", 
+                    "requestId": req_id, 
+                    "content": question
+                }),
+                loop
+            )
+            future.result(timeout=5)  # Wait up to 5 seconds for send
+        except RuntimeError:
+            # No running loop, create new one
+            asyncio.run(self.websocket.send_json({
+                "type": "HUMAN_INPUT_REQUEST", 
+                "requestId": req_id, 
+                "content": question
+            }))
+        except Exception as e:
+            return f"Error sending human input request: {str(e)}"
 
-        # Wait for response
-        while req_id not in self.human_input_store:
+        # Wait for response (with timeout)
+        max_wait = 300  # 5 minutes max wait
+        waited = 0
+        while req_id not in self.human_input_store and waited < max_wait:
             time.sleep(1)
+            waited += 1
+
+        if req_id not in self.human_input_store:
+            return "Error: No response received from user within timeout period."
 
         return self.human_input_store.pop(req_id)
 
