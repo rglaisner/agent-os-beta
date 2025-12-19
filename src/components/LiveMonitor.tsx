@@ -24,9 +24,10 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
 
   // Extract images from logs
   const images = logs
-    .filter(l => l.content.includes('/static/plots/'))
+    .filter(l => typeof l.content === 'string' && l.content.includes('/static/plots/'))
     .map(l => {
-        const match = l.content.match(/\/static\/plots\/[a-zA-Z0-9_]+\.png/);
+        const content = typeof l.content === 'string' ? l.content : String(l.content);
+        const match = content.match(/\/static\/plots\/[a-zA-Z0-9_]+\.png/);
         return match ? match[0] : null;
     })
     .filter(Boolean) as string[];
@@ -41,13 +42,11 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
   // Check for new interventions
   useEffect(() => {
       const lastLog = logs[logs.length - 1];
-      if (lastLog && (lastLog.type === 'INTERVENTION_REQUIRED' || lastLog.type === 'HUMAN_INPUT_REQUEST')) {
-          // Only set if we don't already have an active intervention
-          if (!activeIntervention) {
-              setActiveIntervention(lastLog);
-          }
+      if (lastLog && lastLog.type === 'INTERVENTION_REQUIRED') {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setActiveIntervention(lastLog);
       }
-  }, [logs, activeIntervention]);
+  }, [logs]);
 
   const handleInterventionResponse = (requestId: string, action: 'PROCEED' | 'IGNORE' | 'RETRY' | 'CANCEL') => {
       if (onHumanResponse) {

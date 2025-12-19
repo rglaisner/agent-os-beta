@@ -13,7 +13,7 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
+  const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '');
 
   const fetchDocs = useCallback(async () => {
     try {
