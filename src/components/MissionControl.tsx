@@ -24,7 +24,7 @@ interface MissionControlProps {
 export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
-  const [planOverview, setPlanOverview] = useState<string>('');
+  const [planOverview] = useState<string>('');
   const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
