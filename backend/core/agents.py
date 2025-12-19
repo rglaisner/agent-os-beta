@@ -10,20 +10,28 @@ from crewai_tools import (
 )
 
 from core.socket_handler import WebSocketHandler
-from core.config import DEFAULT_MODEL, MANAGER_MODEL, GEMINI_SAFETY_SETTINGS, check_api_key, ensure_openai_key
+from core.config import DEFAULT_MODEL, MANAGER_MODEL, GEMINI_SAFETY_SETTINGS, check_api_key
 from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_input_store, WrapperPythonREPLTool
 from tools.rag import KnowledgeBaseTool
 from tools.plotting import DataVisualizationTool
 from tools.custom_tool_manager import ToolCreatorTool, load_custom_tools
-
-# Ensure OpenAI Key is set to avoid validation errors for tools that default to it
-ensure_openai_key()
 
 def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, file_paths: List[str]) -> List[Any]:
     """
     Instantiate and return a list of tools based on the provided tool IDs.
     """
     tools = []
+
+    # Configure Gemini Embedder for tools that use RAG/Embeddings
+    # This prevents them from defaulting to OpenAI
+    embedder_config = {
+        "provider": "google-generativeai",
+        "config": {
+            "model": "models/embedding-001",
+            "api_key": os.getenv("GOOGLE_API_KEY")
+        }
+    }
+
     # Standard
     if "tool-search" in tool_ids: tools.append(SerperDevTool())
     if "tool-scrape" in tool_ids: tools.append(ScrapeWebsiteTool())
@@ -35,9 +43,9 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if "tool-builder" in tool_ids: tools.append(ToolCreatorTool())
 
     # New Tools with safe initialization
-    if "tool-csv" in tool_ids: tools.append(CSVSearchTool())
-    if "tool-docx" in tool_ids: tools.append(DOCXSearchTool())
-    if "tool-json" in tool_ids: tools.append(JSONSearchTool())
+    if "tool-csv" in tool_ids: tools.append(CSVSearchTool(config={"embedder": embedder_config}))
+    if "tool-docx" in tool_ids: tools.append(DOCXSearchTool(config={"embedder": embedder_config}))
+    if "tool-json" in tool_ids: tools.append(JSONSearchTool(config={"embedder": embedder_config}))
 
     if "tool-brave" in tool_ids:
         if check_api_key("BRAVE_API_KEY", "BraveSearchTool"):
@@ -47,7 +55,7 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
         if check_api_key("SERPAPI_API_KEY", "SerpApiGoogleSearchTool"):
             tools.append(SerpApiGoogleSearchTool())
 
-    if "tool-rag-crew" in tool_ids: tools.append(RagTool())
+    if "tool-rag-crew" in tool_ids: tools.append(RagTool(config={"embedder": embedder_config}))
 
     # Human
     if human_enabled:
@@ -60,7 +68,7 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if file_paths:
         for path in file_paths:
             if path.endswith(".pdf"):
-                tools.append(PDFSearchTool(pdf=path))
+                tools.append(PDFSearchTool(pdf=path, config={"embedder": embedder_config}))
             else:
                 tools.append(FileReadTool(file_path=path))
 
