@@ -127,7 +127,7 @@ async def generate_plan(request: PlanRequest):
     IMPORTANT:
     - If you create "newAgents", ensure the 'role' is descriptive (e.g., "Market Research Specialist" NOT "AGENT").
     - "agentConfigs": Set "reasoning": true if the agent needs to perform complex logical reasoning (delegation).
-    - Available Tools: tool-search, tool-scrape, tool-finance, tool-python, tool-rag, tool-plot, tool-builder.
+    - Available Tools: tool-search, tool-scrape, tool-finance, tool-python, tool-rag, tool-plot.
 
     Return ONLY the JSON object.
     """

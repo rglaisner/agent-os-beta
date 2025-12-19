@@ -14,7 +14,6 @@ from core.config import DEFAULT_MODEL, MANAGER_MODEL, GEMINI_SAFETY_SETTINGS, ch
 from tools.base_tools import CustomYahooFinanceTool, WebHumanInputTool, human_input_store, WrapperPythonREPLTool
 from tools.rag import KnowledgeBaseTool
 from tools.plotting import DataVisualizationTool
-from tools.custom_tool_manager import ToolCreatorTool, load_custom_tools
 
 def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, file_paths: List[str]) -> List[Any]:
     """
@@ -40,7 +39,6 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
     if "tool-python" in tool_ids: tools.append(WrapperPythonREPLTool())
     if "tool-rag" in tool_ids: tools.append(KnowledgeBaseTool())
     if "tool-plot" in tool_ids: tools.append(DataVisualizationTool())
-    if "tool-builder" in tool_ids: tools.append(ToolCreatorTool())
 
     # New Tools with safe initialization
     if "tool-csv" in tool_ids: tools.append(CSVSearchTool(config={"embedder": embedder_config}))
@@ -71,9 +69,6 @@ def get_tools(tool_ids: List[str], websocket: WebSocket, human_enabled: bool, fi
                 tools.append(PDFSearchTool(pdf=path, config={"embedder": embedder_config}))
             else:
                 tools.append(FileReadTool(file_path=path))
-
-    # Load Custom Tools from DB
-    tools.extend(load_custom_tools())
 
     return tools
 
@@ -157,7 +152,13 @@ def create_tasks(plan: List[dict], agents_map: Dict[str, Agent], uploaded_files:
         ))
 
     for step in plan:
-        agent = agents_map.get(step['agentId']) or list(agents_map.values())[0]
+        agent_id = step.get('agentId')
+        agent = agents_map.get(agent_id)
+        if not agent:
+            # Fallback and log warning
+            agent = list(agents_map.values())[0]
+            print(f"Warning: Agent ID '{agent_id}' not found in map. Falling back to '{agent.role}'.")
+
         desc = step['instruction']
         if uploaded_files:
             desc += f" (Refer to attached files: {uploaded_files})"
