@@ -35,16 +35,20 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
     setLoading(true);
 
     try {
-      await fetch(`${httpUrl}/api/knowledge`, {
+      const res = await fetch(`${httpUrl}/api/knowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: uploadText, source: uploadSource })
       });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Upload failed');
+      }
       setUploadText('');
       setUploadSource('');
       fetchDocs();
-    } catch {
-      alert('Error uploading');
+    } catch (e: any) {
+      alert(`Error uploading: ${e.message}`);
     }
     setLoading(false);
   };
@@ -54,11 +58,15 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
       const fd = new FormData();
       fd.append("file", file);
       try {
-          await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
+          const res = await fetch(`${httpUrl}/api/knowledge/upload`, { method: 'POST', body: fd });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Upload failed');
+          }
           fetchDocs();
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
-        alert("Upload failed");
+        alert(`Upload failed: ${e.message}`);
       }
       setLoading(false);
   };

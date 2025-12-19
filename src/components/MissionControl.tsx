@@ -1,38 +1,32 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info } from 'lucide-react';
+import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
 import Tooltip from './Tooltip';
-
-interface Agent {
-  id: string;
-  role: string;
-  toolIds: string[];
-}
-
-interface PlanStep {
-  id: string;
-  agentId: string;
-  instruction: string;
-  trainingIterations?: number;
-}
+import AgentEditorModal from './AgentEditorModal';
+import { Agent, PlanStep, PlanResponse } from '../constants'; // Import shared types
 
 interface MissionControlProps {
   agents: Agent[];
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
   isRunning: boolean;
-  onAddAgents?: (agents: Agent[]) => void;
-  onUpdateAgent?: (id: string, updates: Partial<Agent>) => void;
+  onAddAgents: (agents: Agent[]) => void;
+  onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
+  onAgentsChange: (agents: Agent[]) => void; // Add this prop
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent, onAgentsChange }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
-  const [planOverview] = useState<string>('');
+  const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
   const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [reasoning, setReasoning] = useState<string | null>(null);
+  const [isModified, setIsModified] = useState(false);
+
+  // Agent Editor State
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL 
     ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
@@ -66,39 +60,82 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     setIsPlanning(true);
     setError(null);
     setReasoning(null);
+    setIsModified(false);
 
     try {
-      // Don't send process_type initially, let the backend suggest it
       const response = await fetch(`${backendUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, agents })
+        body: JSON.stringify({ goal, agents, process_type: processType })
       });
 
       if (!response.ok) throw new Error('Backend failed');
-      const data = await response.json();
+      const data: PlanResponse = await response.json();
 
-      if (data.newAgents && data.newAgents.length > 0 && onAddAgents) {
-          onAddAgents(data.newAgents);
+      if (data.narrative) {
+          setPlanOverview(data.narrative);
       }
 
-      if (data.agentConfigs && onUpdateAgent) {
-          // Apply configuration updates
+      if (data.newAgents && data.newAgents.length > 0) {
+          // Filter out existing IDs to avoid duplicates if re-running
+          const existingIds = new Set(agents.map(a => a.id));
+          const uniqueNewAgents = data.newAgents.filter(a => !existingIds.has(a.id));
+          if (uniqueNewAgents.length > 0) {
+              onAddAgents(uniqueNewAgents);
+          }
+      }
+
+      if (data.agentConfigs) {
           Object.entries(data.agentConfigs).forEach(([agentId, config]) => {
-              // Ensure config is treated as object
-              if (typeof config === 'object' && config !== null) {
-                   onUpdateAgent(agentId, config as Partial<Agent>);
-              }
+              onUpdateAgent(agentId, config as Partial<Agent>);
           });
       }
 
-      setPlan(data.plan || data); // Fallback for old format
+      setPlan(data.plan);
     } catch (err) {
       console.error(err);
       setError("Planning failed. Is the backend running?");
     } finally {
       setIsPlanning(false);
     }
+  };
+
+  const handleStepChange = (idx: number, field: keyof PlanStep, value: any) => {
+      const newPlan = [...plan];
+      newPlan[idx] = { ...newPlan[idx], [field]: value };
+      setPlan(newPlan);
+      setIsModified(true);
+  };
+
+  const handleDeleteStep = (idx: number) => {
+      setPlan(plan.filter((_, i) => i !== idx));
+      setIsModified(true);
+  };
+
+  const handleAddStep = (idx: number) => {
+      const newStep: PlanStep = {
+          id: Date.now(),
+          agentId: agents[0]?.id || 'sys-manager',
+          instruction: 'New task instruction...',
+          trainingIterations: 0
+      };
+      const newPlan = [...plan];
+      newPlan.splice(idx + 1, 0, newStep);
+      setPlan(newPlan);
+      setIsModified(true);
+  };
+
+  const handleAgentSave = (updatedAgent: Agent) => {
+      // If it's a new agent (not in list), add it?
+      // Or just update existing.
+      const exists = agents.find(a => a.id === updatedAgent.id);
+      if (exists) {
+          onUpdateAgent(updatedAgent.id, updatedAgent);
+      } else {
+          // Should not happen in edit mode usually
+          onAddAgents([updatedAgent]);
+      }
+      setIsModified(true);
   };
 
   return (
@@ -211,55 +248,97 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           )}
         </div>
 
-        {reasoning && (
-             <div className="mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-sm text-indigo-800 flex gap-2 items-start">
-                 <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
-                 <div>
-                     <span className="font-bold">Suggested Strategy:</span> {reasoning}
-                 </div>
-             </div>
+        {isModified && (
+            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse">
+                <AlertTriangle className="w-4 h-4" />
+                Warning: Manual changes to the plan or agents may impact mission success. The Planner's optimization might be compromised.
+            </div>
         )}
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-2">
             {plan.length === 0 && <div className="h-full flex flex-col items-center justify-center text-slate-400 italic text-sm border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">Plan will appear here after generation</div>}
 
             {planOverview && (
-                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-lg mb-4 text-sm text-slate-700 italic">
+                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-lg mb-4 text-sm text-slate-700 italic relative group/overview">
                     <span className="font-bold text-indigo-600 not-italic block mb-1">Strategy Overview:</span>
                     {planOverview}
                 </div>
             )}
 
-            {plan.map((step, idx) => (
-              <div key={idx} className="flex gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors group">
-                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-200 shadow-sm shrink-0 transition-colors">{idx + 1}</div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
-                        {agents.find(a => a.id === step.agentId)?.role || 'Agent'}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className="text-slate-500 font-medium">Train:</span>
-                        <input
-                            type="number"
-                            min="0"
-                            value={step.trainingIterations || 0}
-                            onChange={(e) => {
-                                const newPlan = [...plan];
-                                newPlan[idx].trainingIterations = parseInt(e.target.value) || 0;
-                                setPlan(newPlan);
-                            }}
-                            className="w-12 px-1 py-0.5 border border-slate-300 rounded text-center bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                        <span className="text-slate-400">iters</span>
+            {plan.map((step, idx) => {
+                const assignedAgent = agents.find(a => a.id === step.agentId);
+                return (
+                  <div key={idx} className="flex gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors group relative">
+                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-200 shadow-sm shrink-0 transition-colors">{idx + 1}</div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={step.agentId}
+                                onChange={(e) => handleStepChange(idx, 'agentId', e.target.value)}
+                                className="text-xs font-bold text-indigo-600 uppercase tracking-wider bg-transparent border-none focus:ring-0 cursor-pointer"
+                            >
+                                {agents.map(a => (
+                                    <option key={a.id} value={a.id}>{a.role}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => assignedAgent && setEditingAgent(assignedAgent)}
+                                className="text-slate-400 hover:text-indigo-500"
+                                title="Edit Agent"
+                            >
+                                <Edit className="w-3 h-3" />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 text-xs bg-white border border-slate-200 rounded px-2 py-0.5">
+                                <span className="text-slate-500 font-medium">Train:</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={step.trainingIterations || 0}
+                                    onChange={(e) => handleStepChange(idx, 'trainingIterations', parseInt(e.target.value) || 0)}
+                                    className="w-8 text-center bg-transparent focus:outline-none"
+                                />
+                            </div>
+                            <button onClick={() => handleDeleteStep(idx)} className="text-slate-400 hover:text-red-500 p-1">
+                                <Trash2 className="w-3 h-3" />
+                            </button>
+                        </div>
+                      </div>
+
+                      <textarea
+                          value={step.instruction}
+                          onChange={(e) => handleStepChange(idx, 'instruction', e.target.value)}
+                          className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white rounded p-1 transition-all resize-none focus:ring-2 focus:ring-indigo-100"
+                          rows={2}
+                      />
+
+                      {/* Add Step Button (Hover) */}
+                      <button
+                          onClick={() => handleAddStep(idx)}
+                          className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110 shadow-sm"
+                          title="Insert Step After"
+                      >
+                          <Plus className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-700 leading-relaxed">{step.instruction}</p>
-                </div>
-              </div>
-            ))}
+                );
+            })}
         </div>
       </div>
+
+      {/* Agent Editor Modal */}
+      {editingAgent && (
+          <AgentEditorModal
+              agent={editingAgent}
+              isOpen={!!editingAgent}
+              onClose={() => setEditingAgent(null)}
+              onSave={handleAgentSave}
+          />
+      )}
     </div>
   );
 }

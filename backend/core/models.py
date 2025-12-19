@@ -27,3 +27,4 @@ class PlanResponse(BaseModel):
     plan: List[PlanStep]
     newAgents: List[AgentModel]
     agentConfigs: Optional[dict] = None
+    narrative: Optional[str] = None
