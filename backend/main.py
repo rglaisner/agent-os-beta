@@ -1,6 +1,6 @@
 import os
 import asyncio
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -117,6 +117,8 @@ async def websocket_handler(websocket: WebSocket):
 
             elif data.get("action") == "HUMAN_RESPONSE":
                 human_input_store[data["requestId"]] = data["content"]
+    except WebSocketDisconnect:
+        print("Client disconnected")
     except Exception as e:
         print(f"WS Error: {e}")
 
