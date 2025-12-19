@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from database import init_db, create_mission, update_mission_result
 from core.agents import create_agents, create_tasks, MANAGER_MODEL
 from core.socket_handler import WebSocketHandler
+from core.logging_handler import WebSocketLoggingHandler
 from api.routes import router as api_router
 from tools.base_tools import human_input_store
 
@@ -57,6 +59,15 @@ async def websocket_handler(websocket: WebSocket):
                 if "OPENAI_API_KEY" not in os.environ:
                     os.environ["OPENAI_API_KEY"] = "NA"
                 
+                # Setup Logging Handler for WebSocket
+                loop = asyncio.get_running_loop()
+                log_handler = WebSocketLoggingHandler(websocket, loop)
+                # Capture everything from root logger down
+                root_logger = logging.getLogger()
+                root_logger.addHandler(log_handler)
+                # Ensure level is INFO or DEBUG
+                root_logger.setLevel(logging.INFO)
+
                 try:
                     # Create Agents & Tasks
                     uploaded_files = payload.get("files", [])
@@ -114,6 +125,9 @@ async def websocket_handler(websocket: WebSocket):
                 except Exception as e:
                     update_mission_result(mission_id, str(e), status="FAILED")
                     await websocket.send_json({"type": "ERROR", "content": f"Error: {str(e)}"})
+                finally:
+                    # Remove the handler to avoid duplicates or leaks
+                    root_logger.removeHandler(log_handler)
 
             elif data.get("action") == "HUMAN_RESPONSE":
                 human_input_store[data["requestId"]] = data["content"]

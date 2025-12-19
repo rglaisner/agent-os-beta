@@ -11,6 +11,12 @@ class WebSocketHandler(BaseCallbackHandler):
         self.websocket = websocket
         self.mission_id = mission_id
         self.default_model = default_model
+        # Capture the main loop where this handler is created (usually the main thread)
+        try:
+            self.loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.loop = asyncio.get_event_loop()
+
         # Token Tracking (Global accumulators for display)
         self.input_tokens = 0
         self.output_tokens = 0
@@ -103,8 +109,19 @@ class WebSocketHandler(BaseCallbackHandler):
 
     def _safe_send(self, data: Dict[str, Any]):
         try:
-            asyncio.run(self.websocket.send_json(data))
-        except RuntimeError:
-            asyncio.create_task(self.websocket.send_json(data))
+            # Check if we are in the main loop or a thread
+            try:
+                current_loop = asyncio.get_running_loop()
+                if current_loop is self.loop:
+                    # Same loop (main thread), use create_task
+                    self.loop.create_task(self.websocket.send_json(data))
+                else:
+                    # Different loop? Should not happen often with get_running_loop() unless nested loops
+                    # Use run_coroutine_threadsafe
+                    asyncio.run_coroutine_threadsafe(self.websocket.send_json(data), self.loop)
+            except RuntimeError:
+                # No running loop (we are in a thread), use run_coroutine_threadsafe
+                asyncio.run_coroutine_threadsafe(self.websocket.send_json(data), self.loop)
+
         except Exception as e:
             print(f"WS Error: {e}")
