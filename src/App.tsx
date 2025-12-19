@@ -18,7 +18,14 @@ interface LogEntry {
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
 
 export default function AgentPlatform() {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws';
+  // Auto-detect WebSocket protocol: use wss:// for HTTPS (production), ws:// for HTTP (localhost)
+  const getDefaultBackendUrl = () => {
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      return 'wss://localhost:8000/ws'; // For local HTTPS testing
+    }
+    return 'ws://localhost:8000/ws'; // Default for local development
+  };
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || getDefaultBackendUrl();
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS.filter(a => a.type !== 'SYSTEM'));
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);

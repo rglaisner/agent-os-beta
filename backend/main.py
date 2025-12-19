@@ -43,15 +43,23 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Include API Routes
 app.include_router(api_router, prefix="/api")
 
+# Health check endpoint for Render.com
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "port": os.getenv("PORT", "unknown")}
+
 # --- WEBSOCKET ENDPOINT ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket_handler(websocket)
 
-@app.websocket("/")
-async def websocket_endpoint_root(websocket: WebSocket):
-    await websocket_handler(websocket)
-
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Use PORT environment variable (set by Render) or default to 8000 for local development
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port,
+        ws="auto"  # Explicit WebSocket support
+    )

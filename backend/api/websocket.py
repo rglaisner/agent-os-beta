@@ -19,6 +19,15 @@ async def websocket_handler(websocket: WebSocket):
     Handle WebSocket connections for mission execution.
     Includes input validation and robust error handling.
     """
+    # Origin validation for CORS (prevents 403 errors on Render)
+    origin = websocket.headers.get("origin")
+    allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+    
+    # Allow connection if wildcard is set or origin matches
+    if "*" not in allowed_origins and origin and origin not in allowed_origins:
+        await websocket.close(code=403, reason="Origin not allowed")
+        return
+    
     await websocket.accept()
     try:
         while True:
