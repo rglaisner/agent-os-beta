@@ -21,6 +21,7 @@ import {
   Plus
 } from 'lucide-react';
 import { type Agent, type Tool, DEFAULT_AGENTS, DEFAULT_TOOLS } from './constants';
+import InterventionModal from './components/modals/InterventionModal';
 
 // --- Types & Interfaces ---
 
@@ -28,9 +29,11 @@ interface LogEntry {
   id: string;
   timestamp: number;
   agentName: string;
-  type: 'THOUGHT' | 'ACTION' | 'OUTPUT' | 'SYSTEM' | 'ERROR' | 'FEEDBACK' | 'RESCUE';
-  content: string;
+  type: 'THOUGHT' | 'ACTION' | 'OUTPUT' | 'SYSTEM' | 'ERROR' | 'FEEDBACK' | 'RESCUE' | 'INTERVENTION_REQUIRED' | 'TERMINAL' | 'STREAM';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  content: any;
   qualityScore?: number;
+  requestId?: string;
 }
 
 interface ExecutionStep {
@@ -346,9 +349,12 @@ const MissionControl = ({ agents, setAgents, onLaunch }: { agents: Agent[], setA
   );
 };
 
-const LiveMonitor = ({ logs, artifacts, isRunning, onStop }: { logs: LogEntry[], artifacts: Artifact[], isRunning: boolean, onStop: () => void }) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const LiveMonitor = ({ logs, artifacts, isRunning, onStop, onHumanResponse }: { logs: LogEntry[], artifacts: Artifact[], isRunning: boolean, onStop: () => void, onHumanResponse?: (requestId: string, content: any) => void }) => {
   const [activeView, setActiveView] = useState<'LOGS' | 'ARTIFACTS'>('LOGS');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [activeIntervention, setActiveIntervention] = useState<LogEntry | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -361,8 +367,31 @@ const LiveMonitor = ({ logs, artifacts, isRunning, onStop }: { logs: LogEntry[],
     }
   }, [artifacts.length, isRunning, activeView]);
 
+  useEffect(() => {
+      const lastLog = logs[logs.length - 1];
+      if (lastLog && lastLog.type === 'INTERVENTION_REQUIRED') {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setActiveIntervention(lastLog);
+      }
+  }, [logs]);
+
+  const handleInterventionResponse = (requestId: string, action: 'PROCEED' | 'IGNORE' | 'RETRY' | 'CANCEL') => {
+      if (onHumanResponse) {
+          onHumanResponse(requestId, { action });
+      }
+      setActiveIntervention(null);
+  };
+
   return (
-    <div className="h-full flex flex-col bg-slate-950 text-slate-300 font-mono text-sm border-l border-slate-800">
+    <div className="h-full flex flex-col bg-slate-950 text-slate-300 font-mono text-sm border-l border-slate-800 relative">
+      {activeIntervention && (
+        <InterventionModal
+            requestId={activeIntervention.requestId || ''}
+            data={activeIntervention.content}
+            onResponse={handleInterventionResponse}
+        />
+      )}
+
       <div className="p-2 border-b border-slate-800 flex justify-between items-center bg-slate-900">
         <div className="flex p-1 bg-slate-950 rounded-lg">
             <button 
@@ -389,7 +418,7 @@ const LiveMonitor = ({ logs, artifacts, isRunning, onStop }: { logs: LogEntry[],
       <div className="flex-1 overflow-hidden relative">
           {activeView === 'LOGS' && (
               <div className="h-full overflow-y-auto p-4 space-y-4 custom-scrollbar" ref={scrollRef}>
-                 {logs.map((log) => (
+                 {logs.filter(l => l.type !== 'INTERVENTION_REQUIRED').map((log) => (
                     <div key={log.id} className={`flex gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200 ${log.type === 'FEEDBACK' ? 'bg-slate-900/80 p-2 rounded border border-yellow-900/30' : log.type === 'RESCUE' ? 'bg-blue-900/30 p-2 rounded border border-blue-500/50' : log.type === 'ERROR' ? 'bg-red-900/20 p-2 rounded border border-red-900/50' : ''}`}>
                         <div className="w-16 text-[10px] text-slate-600 pt-1 shrink-0">{new Date(log.timestamp).toLocaleTimeString([],{hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>
                         <div className="flex-1">
@@ -400,14 +429,15 @@ const LiveMonitor = ({ logs, artifacts, isRunning, onStop }: { logs: LogEntry[],
                                 {log.type === 'FEEDBACK' && <span className="text-orange-500 text-[10px] flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> SUPERVISOR FEEDBACK</span>}
                                 {log.type === 'RESCUE' && <span className="text-blue-400 text-[10px] flex items-center gap-1 font-bold"><LifeBuoy className="w-3 h-3"/> RESCUE INTERVENTION</span>}
                                 {log.type === 'ERROR' && <span className="text-red-500 text-[10px] flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> ERROR</span>}
-                                <span className="font-bold text-slate-200 text-xs">[{log.agentName}]</span>
+                                {log.type === 'TERMINAL' && <span className="text-gray-400 text-[10px] flex items-center gap-1">LOG</span>}
+                                {log.type !== 'TERMINAL' && <span className="font-bold text-slate-200 text-xs">[{log.agentName}]</span>}
                                 {log.qualityScore !== undefined && (
                                     <span className={`text-[10px] px-1 rounded ${log.qualityScore >= 70 ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
                                         QS: {log.qualityScore}%
                                     </span>
                                 )}
                             </div>
-                            <div className="whitespace-pre-wrap text-xs leading-relaxed opacity-90">{log.content}</div>
+                            <div className="whitespace-pre-wrap text-xs leading-relaxed opacity-90">{typeof log.content === 'string' ? log.content : JSON.stringify(log.content)}</div>
                         </div>
                     </div>
                  ))}
@@ -540,6 +570,7 @@ export default function AgentPlatform() {
   const [isRunning, setIsRunning] = useState(false);
   const [usage, setUsage] = useState<TokenUsage>({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
   const stopSignal = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const extractArtifacts = (text: string, agentName: string) => {
     const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)```/g;
@@ -597,6 +628,7 @@ export default function AgentPlatform() {
 
     try {
       const ws = new WebSocket('ws://localhost:8000/ws');
+      wsRef.current = ws;
       
       ws.onopen = () => {
         ws.send(JSON.stringify({ action: "START_MISSION", payload }));
@@ -626,13 +658,18 @@ export default function AgentPlatform() {
             id: `msg-${Date.now()}-${Math.random()}`,
             timestamp: Date.now(),
             agentName: msg.agentName || 'System',
-            type: (msg.type as LogEntry['type']) || 'THOUGHT',
-            content: msg.content
+            type: msg.type,
+            content: msg.content,
+            qualityScore: msg.qualityScore
         };
+
+        if (msg.type === 'INTERVENTION_REQUIRED') {
+            newLog.requestId = msg.requestId;
+        }
 
         setLogs(prev => [...prev, newLog]);
 
-        if (msg.type === 'OUTPUT') {
+        if (msg.type === 'OUTPUT' && typeof msg.content === 'string') {
             extractArtifacts(msg.content, msg.agentName || 'Crew');
         }
       };
@@ -656,6 +693,24 @@ export default function AgentPlatform() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleHumanResponse = (requestId: string, content: any) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+              action: "HUMAN_RESPONSE",
+              requestId,
+              content
+          }));
+          setLogs(p => [...p, {
+              id: `hum-${Date.now()}`,
+              timestamp: Date.now(),
+              agentName: 'System',
+              type: 'SYSTEM',
+              content: `User intervention: ${content.action}`
+          }]);
+      }
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-white overflow-hidden selection:bg-indigo-500 selection:text-white">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -664,7 +719,7 @@ export default function AgentPlatform() {
         <div className="flex-1 overflow-hidden">
             {activeTab === 'agents' && <AgentLab agents={agents} setAgents={setAgents} />}
             {activeTab === 'mission' && <MissionControl agents={agents} setAgents={setAgents} onLaunch={runOrchestratedSimulation} />}
-            {activeTab === 'monitor' && <LiveMonitor logs={logs} artifacts={artifacts} isRunning={isRunning} onStop={handleStop} />}
+            {activeTab === 'monitor' && <LiveMonitor logs={logs} artifacts={artifacts} isRunning={isRunning} onStop={handleStop} onHumanResponse={handleHumanResponse} />}
             {activeTab === 'code' && <CodeExport agents={agents} />}
         </div>
 

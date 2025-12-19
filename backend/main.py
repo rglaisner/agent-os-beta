@@ -11,6 +11,7 @@ from core.agents import create_agents, create_tasks, MANAGER_MODEL, GEMINI_SAFET
 from core.socket_handler import WebSocketHandler
 from core.logging_handler import WebSocketLoggingHandler
 from core.stdout_capture import StdoutInterceptor
+from core.execution import run_mission_loop
 from api.routes import router as api_router
 from tools.base_tools import human_input_store
 
@@ -74,60 +75,20 @@ async def websocket_handler(websocket: WebSocket):
                 stdout_interceptor.start()
 
                 try:
-                    # Create Agents & Tasks
+                    # Create Agents (Plan is handled in execution loop)
                     uploaded_files = payload.get("files", [])
-                    # Support 'context' from App_Local as file content if passed
-                    if payload.get("context"):
-                        # If context is raw text, maybe save it to a file?
-                        # For now, we assume payload['files'] handles file paths.
-                        pass
-
                     agents_map = create_agents(payload['agents'], uploaded_files, websocket, mission_id)
-                    tasks = create_tasks(payload['plan'], agents_map, uploaded_files)
 
-                    # Process Type logic
-                    process_type = payload.get("processType") or payload.get("process") or "sequential"
+                    # Execute Custom Mission Loop
+                    await run_mission_loop(
+                        payload['plan'],
+                        agents_map,
+                        websocket,
+                        mission_id
+                    )
 
-                    await websocket.send_json({"type": "SYSTEM", "content": f"Mission Started ({process_type.upper()})"})
-
-                    # Crew Configuration
-                    crew_args = {
-                        "agents": list(agents_map.values()),
-                        "tasks": tasks,
-                        "process": Process.hierarchical if process_type == "hierarchical" else Process.sequential,
-                        "verbose": True
-                    }
-
-                    if process_type == "hierarchical":
-                        # Manager LLM - explicit model name
-                        manager_handler = WebSocketHandler(websocket, mission_id, default_model=MANAGER_MODEL.split("/")[-1])
-                        crew_args["manager_llm"] = LLM(
-                            model=MANAGER_MODEL,
-                            temperature=0.7,
-                            callbacks=[manager_handler],
-                            timeout=600,  # 10 minutes timeout
-                            safety_settings=GEMINI_SAFETY_SETTINGS
-                        )
-
-                    crew = Crew(**crew_args)
-
-                    # Training Phase
-                    train_iterations = 0
-                    if 'plan' in payload:
-                        for step in payload['plan']:
-                            if step.get('trainingIterations'):
-                                train_iterations = max(train_iterations, int(step['trainingIterations']))
-
-                    if train_iterations > 0:
-                        await websocket.send_json({"type": "SYSTEM", "content": f"Initiating Training Phase ({train_iterations} iterations)..."})
-                        # Create a unique filename for training data
-                        train_file = f"uploads/training_mission_{mission_id}.pkl"
-                        await asyncio.get_event_loop().run_in_executor(None, lambda: crew.train(n_iterations=train_iterations, filename=train_file))
-                        await websocket.send_json({"type": "SYSTEM", "content": "Training Complete. Starting Mission..."})
-
-                    result = await asyncio.get_event_loop().run_in_executor(None, crew.kickoff)
-                    update_mission_result(mission_id, str(result))
-                    await websocket.send_json({"type": "OUTPUT", "content": str(result), "agentName": "System"})
+                    update_mission_result(mission_id, "Mission Complete", status="COMPLETED")
+                    await websocket.send_json({"type": "SYSTEM", "content": "Mission Execution Finished."})
 
                 except Exception as e:
                     update_mission_result(mission_id, str(e), status="FAILED")
