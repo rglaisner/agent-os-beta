@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from core.models import PlanRequest
 from tools.rag import (
     add_document_to_kb, list_documents, delete_document_by_source, search_documents,
-    semantic_search_with_expansion, summarize_document, get_knowledge_base_health
+    semantic_search_with_expansion, summarize_document, get_knowledge_base_health, get_collection
 )
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
@@ -107,28 +107,51 @@ async def knowledge_health():
 @router.get("/knowledge/graph")
 async def knowledge_graph():
     """Get knowledge graph visualization data."""
-    # Simplified knowledge graph - in production, use proper graph database
-    collection = get_collection()
-    data = collection.get(include=['metadatas', 'documents'])
-    
-    nodes = []
-    edges = []
-    source_map = {}
-    
-    for i, metadata in enumerate(data.get('metadatas', [])):
-        if metadata and 'source' in metadata:
-            source = metadata['source']
-            if source not in source_map:
-                source_map[source] = len(nodes)
-                nodes.append({"id": source, "label": source, "type": "document"})
-    
-    # Simple edge creation based on shared keywords (simplified)
-    # In production, use proper entity extraction and relationship detection
-    return {
-        "nodes": nodes,
-        "edges": edges,
-        "total_nodes": len(nodes)
-    }
+    try:
+        collection = get_collection()
+        # Get all documents with their metadata to build a graph
+        data = collection.get(include=['metadatas', 'documents', 'ids'])
+        
+        nodes = []
+        edges = []
+        source_map = {}
+        
+        if data and data.get('ids'):
+            for i, doc_id in enumerate(data['ids']):
+                metadata = data.get('metadatas', [{}])[i] if data.get('metadatas') else {}
+                source = metadata.get('source', 'Unknown') if metadata else 'Unknown'
+                
+                # Create node for each unique source
+                if source not in source_map:
+                    source_map[source] = len(nodes)
+                    nodes.append({
+                        "id": source,
+                        "label": source,
+                        "type": "document"
+                    })
+                
+                # Create node for document chunk
+                nodes.append({
+                    "id": doc_id,
+                    "label": f"Chunk {i+1}",
+                    "type": "chunk",
+                    "source": source
+                })
+                
+                # Create edge from source to chunk
+                edges.append({
+                    "from": source,
+                    "to": doc_id
+                })
+        
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "total_documents": len(source_map),
+            "total_nodes": len(nodes)
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):

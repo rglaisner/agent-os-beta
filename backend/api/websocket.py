@@ -19,7 +19,15 @@ async def websocket_handler(websocket: WebSocket):
     Handle WebSocket connections for mission execution.
     Includes input validation and robust error handling.
     """
-    await websocket.accept()
+    # Accept WebSocket connection
+    # FastAPI WebSocket doesn't use CORS middleware, so we accept all origins
+    # In production, you can add origin validation here if needed
+    try:
+        await websocket.accept()
+    except Exception as e:
+        # Log but don't raise - connection might already be closed
+        print(f"WebSocket accept error (may be expected): {e}")
+        return
     try:
         while True:
             try:
