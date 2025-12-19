@@ -8,6 +8,9 @@ class AgentModel(BaseModel):
     backstory: str
     toolIds: List[str]
     humanInput: bool
+    reasoning: Optional[bool] = False
+    max_reasoning_attempts: Optional[int] = None
+    max_iter: Optional[int] = None
 
 class PlanStep(BaseModel):
     id: str
@@ -23,3 +26,4 @@ class PlanRequest(BaseModel):
 class PlanResponse(BaseModel):
     plan: List[PlanStep]
     newAgents: List[AgentModel]
+    agentConfigs: Optional[dict] = None

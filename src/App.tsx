@@ -8,7 +8,17 @@ import KnowledgeBase from './components/KnowledgeBase';
 
 // --- TYPES ---
 interface Tool { id: string; name: string; description: string; }
-interface Agent { id: string; role: string; goal: string; backstory: string; toolIds: string[]; humanInput: boolean; }
+interface Agent {
+    id: string;
+    role: string;
+    goal: string;
+    backstory: string;
+    toolIds: string[];
+    humanInput: boolean;
+    reasoning?: boolean;
+    max_reasoning_attempts?: number;
+    max_iter?: number;
+}
 interface LogEntry { timestamp: string; agentName: string; type: string; content: string; }
 interface PlanStep { id: string; agentId: string; instruction: string; trainingIterations?: number; }
 interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: number; }
@@ -199,7 +209,7 @@ export default function AgentPlatform() {
           </div>
         )}
         <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
-            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} />}
+            {activeTab === 'SETUP' && <MissionControl agents={agents} onLaunch={runOrchestratedSimulation} isRunning={isRunning} onAddAgents={addNewAgents} onUpdateAgent={updateAgent} />}
             {activeTab === 'MONITOR' && (
                 <>
                     <div className="flex-1 bg-white rounded-xl border border-slate-200 overflow-hidden relative shadow-sm"><LiveMonitor logs={logs} isRunning={isRunning} onStop={stopSimulation} /></div>

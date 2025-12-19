@@ -20,9 +20,10 @@ interface MissionControlProps {
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
   isRunning: boolean;
   onAddAgents?: (agents: Agent[]) => void;
+  onUpdateAgent?: (id: string, updates: Partial<Agent>) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents }: MissionControlProps) {
+export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [planOverview, setPlanOverview] = useState<string>('');
@@ -79,7 +80,16 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
       if (data.newAgents && data.newAgents.length > 0 && onAddAgents) {
           onAddAgents(data.newAgents);
-          // Show a small ephemeral notification? For now we just add them.
+      }
+
+      if (data.agentConfigs && onUpdateAgent) {
+          // Apply configuration updates
+          Object.entries(data.agentConfigs).forEach(([agentId, config]) => {
+              // Ensure config is treated as object
+              if (typeof config === 'object' && config !== null) {
+                   onUpdateAgent(agentId, config as Partial<Agent>);
+              }
+          });
       }
 
       setPlan(data.plan || data); // Fallback for old format

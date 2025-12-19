@@ -113,6 +113,10 @@ async def generate_plan(request: PlanRequest):
     Create a JSON object with two keys:
     1. "plan": An array of steps [{{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details", "trainingIterations": 0 }}]
     2. "newAgents": An array of new agents needed [{{ "id": "unique-id", "role": "Role Name", "goal": "Agent Goal", "backstory": "Agent Backstory", "toolIds": ["tool-id", ...], "humanInput": false }}]
+    3. "agentConfigs": A dictionary where keys are agent IDs (existing or new) and values are objects {{ "reasoning": boolean, "max_reasoning_attempts": int, "max_iter": int }}.
+       - Set "reasoning": true if the agent needs to perform complex logical reasoning for its tasks (this will enable delegation).
+       - "max_reasoning_attempts": default 2, increase if error prone (e.g., 5).
+       - "max_iter": default 25, increase for complex planning (e.g., 30).
 
     Ensure new agents have unique IDs (e.g., 'agent-specialist').
     Available Tools to assign to new agents: tool-search, tool-scrape, tool-finance, tool-python, tool-rag, tool-plot, tool-builder.
@@ -125,7 +129,12 @@ async def generate_plan(request: PlanRequest):
         data = json.loads(text)
         # Normalize response if LLM returns just a list (legacy behavior fallback)
         if isinstance(data, list):
-            return {"plan": data, "newAgents": []}
+            return {"plan": data, "newAgents": [], "agentConfigs": {}}
+
+        # Ensure agentConfigs exists
+        if "agentConfigs" not in data:
+            data["agentConfigs"] = {}
+
         return data
     except Exception as e:
         raise HTTPException(500, str(e))
