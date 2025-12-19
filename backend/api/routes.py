@@ -2,9 +2,10 @@ import os
 import json
 import time
 import shutil
+from typing import List
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
-from core.models import PlanRequest
+from core.models import PlanRequest, MissionResponse
 from tools.rag import add_document_to_kb, list_documents, delete_document_by_source, search_documents
 from pydantic import BaseModel
 from core.database import get_missions, get_mission
@@ -163,17 +164,38 @@ async def generate_plan(request: PlanRequest):
     except Exception as e:
         raise HTTPException(500, str(e))
 
-@router.get("/missions")
+@router.get("/missions", response_model=List[MissionResponse])
 async def list_missions():
     try:
         missions = get_missions()
-        return {"missions": missions}
+        # Convert SQLAlchemy objects to Pydantic models with proper serialization
+        missions_list = [
+            MissionResponse(
+                id=m.id,
+                goal=m.goal or "",
+                status=m.status or "UNKNOWN",
+                created_at=m.created_at.isoformat() if m.created_at else None,
+                estimated_cost=float(m.estimated_cost or 0.0),
+                total_tokens=int(m.total_tokens or 0),
+                result=m.result
+            )
+            for m in missions
+        ]
+        return missions_list  # Return array directly
     except Exception as e:
         raise HTTPException(500, str(e))
 
-@router.get("/missions/{mission_id}")
+@router.get("/missions/{mission_id}", response_model=MissionResponse)
 async def get_mission_details(mission_id: int):
     mission = get_mission(mission_id)
     if not mission:
         raise HTTPException(404, "Mission not found")
-    return mission
+    return MissionResponse(
+        id=mission.id,
+        goal=mission.goal or "",
+        status=mission.status or "UNKNOWN",
+        created_at=mission.created_at.isoformat() if mission.created_at else None,
+        estimated_cost=float(mission.estimated_cost or 0.0),
+        total_tokens=int(mission.total_tokens or 0),
+        result=mission.result
+    )

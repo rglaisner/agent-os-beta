@@ -74,25 +74,61 @@ export default function AgentPlatform() {
     setFinalOutput(null); // Reset final output
     setUsage({ inputTokens: 0, outputTokens: 0, totalCost: 0 }); // Reset Usage
     
-    const connectWebSocket = (): Promise<WebSocket> => {
+    const connectWebSocket = (retries = 3): Promise<WebSocket> => {
       return new Promise((resolve, reject) => {
         try {
           const ws = new WebSocket(backendUrl);
+          let resolved = false;
           
           ws.onopen = () => {
-            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
-            resolve(ws);
+            if (!resolved) {
+              resolved = true;
+              ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
+              resolve(ws);
+            }
           };
           
           ws.onerror = (error) => {
-            reject(new Error(`WebSocket connection error: ${error}`));
+            if (!resolved) {
+              ws.close();
+              if (retries > 0) {
+                // Retry with exponential backoff
+                const delay = Math.pow(2, 3 - retries) * 1000; // 1s, 2s, 4s
+                setLogs(prev => [...prev, {
+                  timestamp: new Date().toISOString(),
+                  agentName: 'System',
+                  type: 'SYSTEM',
+                  content: `Connection failed. Retrying in ${delay/1000}s... (${retries} attempts remaining)`
+                }]);
+                setTimeout(() => {
+                  connectWebSocket(retries - 1).then(resolve).catch(reject);
+                }, delay);
+              } else {
+                resolved = true;
+                reject(new Error(`WebSocket connection error after 3 retries: ${error}`));
+              }
+            }
           };
           
           // Set timeout for connection
           setTimeout(() => {
-            if (ws.readyState !== WebSocket.OPEN) {
+            if (!resolved && ws.readyState !== WebSocket.OPEN) {
               ws.close();
-              reject(new Error('WebSocket connection timeout'));
+              if (retries > 0) {
+                const delay = Math.pow(2, 3 - retries) * 1000;
+                setLogs(prev => [...prev, {
+                  timestamp: new Date().toISOString(),
+                  agentName: 'System',
+                  type: 'SYSTEM',
+                  content: `Connection timeout. Retrying in ${delay/1000}s... (${retries} attempts remaining)`
+                }]);
+                setTimeout(() => {
+                  connectWebSocket(retries - 1).then(resolve).catch(reject);
+                }, delay);
+              } else {
+                resolved = true;
+                reject(new Error('WebSocket connection timeout after 3 retries'));
+              }
             }
           }, 10000); // 10 second timeout
         } catch (e) {

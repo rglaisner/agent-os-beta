@@ -25,7 +25,7 @@ export interface Agent {
 }
 
 export interface PlanStep {
-  id: string | number; // Backend expects string, frontend may use number (Date.now())
+  id: string; // Standardized to string for consistency
   instruction: string;
   agentId: string;
   trainingIterations?: number;

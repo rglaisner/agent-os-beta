@@ -24,8 +24,9 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
 
   // Extract images from logs
   const images = logs
-    .filter(l => l.content.includes('/static/plots/'))
+    .filter(l => typeof l.content === 'string' && l.content.includes('/static/plots/'))
     .map(l => {
+        if (typeof l.content !== 'string') return null;
         const match = l.content.match(/\/static\/plots\/[a-zA-Z0-9_]+\.png/);
         return match ? match[0] : null;
     })
@@ -42,9 +43,14 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
   useEffect(() => {
       const lastLog = logs[logs.length - 1];
       if (lastLog && (lastLog.type === 'INTERVENTION_REQUIRED' || lastLog.type === 'HUMAN_INPUT_REQUEST')) {
-          // Only set if we don't already have an active intervention
-          if (!activeIntervention) {
-              setActiveIntervention(lastLog);
+          // Validate that we have required data
+          if (lastLog.requestId && lastLog.content) {
+              // Only set if we don't already have an active intervention
+              if (!activeIntervention) {
+                  setActiveIntervention(lastLog);
+              }
+          } else {
+              console.warn('Human input request missing required fields:', lastLog);
           }
       }
   }, [logs, activeIntervention]);
@@ -58,7 +64,14 @@ export default function LiveMonitor({ logs, isRunning, onStop, onHumanResponse }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderContent = (content: any) => {
-    if (typeof content !== 'string') return JSON.stringify(content);
+    if (typeof content !== 'string') {
+      // Handle non-string content (objects, arrays, etc.)
+      try {
+        return <pre className="whitespace-pre-wrap break-words leading-relaxed text-slate-700 font-mono text-xs">{JSON.stringify(content, null, 2)}</pre>;
+      } catch {
+        return <p className="whitespace-pre-wrap break-words leading-relaxed text-slate-700">[Non-string content]</p>;
+      }
+    }
 
     // Check for image URL
     const imgMatch = content.match(/(\/static\/plots\/[a-zA-Z0-9_]+\.png)/);

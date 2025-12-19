@@ -112,7 +112,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-          id: Date.now(),
+          id: `step-${Date.now()}`, // Ensure string ID
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -134,6 +134,38 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           onAddAgents([updatedAgent]);
       }
       setIsModified(true);
+  };
+
+  const validatePlan = (planToValidate: PlanStep[]): { valid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
+    if (planToValidate.length === 0) {
+      errors.push('Plan cannot be empty');
+    }
+    
+    planToValidate.forEach((step, idx) => {
+      if (!step.instruction || step.instruction.trim().length === 0) {
+        errors.push(`Step ${idx + 1} has no instruction`);
+      }
+      if (!step.agentId) {
+        errors.push(`Step ${idx + 1} has no assigned agent`);
+      }
+      if (!agents.find(a => a.id === step.agentId)) {
+        errors.push(`Step ${idx + 1} references non-existent agent`);
+      }
+    });
+    
+    return { valid: errors.length === 0, errors };
+  };
+
+  const handleLaunch = () => {
+    const validation = validatePlan(plan);
+    if (!validation.valid) {
+      setError(`Cannot launch: ${validation.errors.join(', ')}`);
+      return;
+    }
+    setError(null);
+    onLaunch(plan, uploadedFiles.map(f => f.path), processType);
   };
 
   return (
@@ -236,7 +268,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (
             <button
-              onClick={() => onLaunch(plan, uploadedFiles.map(f => f.path), processType)}
+              onClick={handleLaunch}
               disabled={isRunning}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
             >

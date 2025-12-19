@@ -1,4 +1,5 @@
 from typing import List, Any, Optional
+from datetime import datetime
 from pydantic import BaseModel
 
 class AgentModel(BaseModel):
@@ -28,3 +29,12 @@ class PlanResponse(BaseModel):
     newAgents: List[AgentModel]
     agentConfigs: Optional[dict] = None
     narrative: Optional[str] = None
+
+class MissionResponse(BaseModel):
+    id: int
+    goal: str
+    status: str
+    created_at: Optional[str] = None
+    estimated_cost: float = 0.0
+    total_tokens: int = 0
+    result: Optional[str] = None
