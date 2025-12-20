@@ -46,18 +46,6 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
         
         setMissions(missionsArray);
       } catch (err) {
-    fetch(`${httpUrl}/api/missions`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        // Backend returns {missions: [...]}
-        const missionsList = Array.isArray(data) ? data : (data.missions || []);
-        setMissions(missionsList);
-        setLoading(false);
-      })
-      .catch(err => {
         console.error("Failed to fetch history:", err);
         setError(err instanceof Error ? err.message : "Failed to load mission history");
         setMissions([]);
