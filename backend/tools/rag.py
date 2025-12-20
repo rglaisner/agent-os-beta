@@ -1,8 +1,10 @@
 import os
 import chromadb
-from typing import List, Optional
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from typing import List, Optional, Dict
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from crewai.tools import BaseTool
+from datetime import datetime, timedelta
+import json
 
 # Initialize ChromaDB
 # Storing in a local folder 'chroma_db'
@@ -124,3 +126,107 @@ def search_documents(query: str, n_results: int = 5):
     except Exception as e:
         print(f"Error searching documents: {e}")
         return []
+
+def expand_query_semantically(query: str) -> List[str]:
+    """Expand a query semantically using LLM."""
+    try:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return [query]  # Return original if no API key
+        
+        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
+        prompt = f"""
+        Given this search query: "{query}"
+        
+        Generate 3-5 semantically related search queries that would help find relevant information.
+        Return ONLY a JSON array of strings, no other text.
+        
+        Example: ["original query", "related query 1", "related query 2"]
+        """
+        
+        response = llm.invoke(prompt)
+        text = response.content.replace("```json", "").replace("```", "").strip()
+        expanded = json.loads(text)
+        return expanded if isinstance(expanded, list) else [query]
+    except:
+        return [query]
+
+def semantic_search_with_expansion(query: str, n_results: int = 5):
+    """Semantic search with query expansion."""
+    expanded_queries = expand_query_semantically(query)
+    all_results = []
+    seen_content = set()
+    
+    for eq in expanded_queries:
+        results = search_documents(eq, n_results=n_results)
+        for r in results:
+            content_hash = hash(r["content"][:100])  # Use first 100 chars as hash
+            if content_hash not in seen_content:
+                seen_content.add(content_hash)
+                all_results.append(r)
+    
+    # Sort by score (lower is better for distance)
+    all_results.sort(key=lambda x: x.get("score", 0))
+    return all_results[:n_results]
+
+def summarize_document(text: str, max_length: int = 200) -> str:
+    """Automatically summarize a document."""
+    try:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return text[:max_length] + "..." if len(text) > max_length else text
+        
+        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.3)
+        prompt = f"""
+        Summarize the following text in {max_length} characters or less. Focus on key points and main ideas.
+        
+        Text:
+        {text[:2000]}  # Limit input to avoid token limits
+        
+        Summary:
+        """
+        
+        response = llm.invoke(prompt)
+        return response.content.strip()
+    except:
+        return text[:max_length] + "..." if len(text) > max_length else text
+
+def get_knowledge_base_health() -> Dict:
+    """Get knowledge base health metrics."""
+    try:
+        collection = get_collection()
+        data = collection.get(include=['metadatas', 'documents'])
+        
+        total_chunks = len(data.get('documents', []))
+        sources = set()
+        source_chunk_counts = {}
+        total_chars = 0
+        
+        for i, metadata in enumerate(data.get('metadatas', [])):
+            if metadata and 'source' in metadata:
+                source = metadata['source']
+                sources.add(source)
+                source_chunk_counts[source] = source_chunk_counts.get(source, 0) + 1
+                if i < len(data.get('documents', [])):
+                    total_chars += len(data['documents'][i])
+        
+        # Calculate coverage (simplified - based on number of sources)
+        coverage_score = min(100, len(sources) * 10)  # 10 points per source, max 100
+        
+        # Calculate freshness (would need timestamps in metadata - simplified for now)
+        freshness_score = 75  # Placeholder - would check last update times
+        
+        return {
+            "total_documents": len(sources),
+            "total_chunks": total_chunks,
+            "total_characters": total_chars,
+            "coverage_score": coverage_score,
+            "freshness_score": freshness_score,
+            "source_distribution": source_chunk_counts,
+            "health_status": "good" if coverage_score > 50 else "needs_improvement"
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "health_status": "error"
+        }
