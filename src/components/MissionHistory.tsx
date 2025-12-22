@@ -27,19 +27,6 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
     .replace(/\/$/, ''); // Remove trailing slash if present
 
   useEffect(() => {
-<<<<<<< HEAD
-    fetch(`${httpUrl}/api/missions`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (data && Array.isArray(data.missions)) {
-            setMissions(data.missions);
-        } else {
-            console.warn("Mission history data is not in the expected format:", data);
-            setMissions([]);
-=======
     const fetchMissions = async () => {
       setLoading(true);
       setError(null);
@@ -47,7 +34,6 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
         const res = await fetch(`${httpUrl}/api/missions`);
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
->>>>>>> origin/main
         }
         const data = await res.json();
         
