@@ -56,12 +56,6 @@ async def websocket_handler(websocket: WebSocket):
     origin = websocket.headers.get("origin")
     allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
     
-    # Allow connection if wildcard is set or origin matches
-    if "*" not in allowed_origins and origin and origin not in allowed_origins:
-        await websocket.close(code=403, reason="Origin not allowed")
-        return
-    
-    await websocket.accept()
     # Accept the connection FIRST - this is critical for WebSocket connections
     # FastAPI will reject with 403 if we don't accept quickly enough
     try:
