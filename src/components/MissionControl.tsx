@@ -10,7 +10,7 @@ interface MissionControlProps {
   agents: Agent[];
   allAgents?: Agent[];
   backendUrl?: string;
-  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
+  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string, agentsToInclude?: Agent[]) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
@@ -277,6 +277,10 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       errors.push('Plan cannot be empty');
     }
     
+    // Combine current agents (which includes newly added ones) and pending new agents for validation
+    // Use 'agents' prop (not agentsForValidation) since it reflects the current state after onAddAgents
+    const allAvailableAgents = [...agents, ...pendingNewAgents];
+    
     planToValidate.forEach((step, idx) => {
       if (!step.instruction || step.instruction.trim().length === 0) {
         errors.push(`Step ${idx + 1} has no instruction`);
@@ -284,7 +288,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       if (!step.agentId) {
         errors.push(`Step ${idx + 1} has no assigned agent`);
       }
-      if (!agentsForValidation.find(a => a.id === step.agentId)) {
+      if (!allAvailableAgents.find(a => a.id === step.agentId)) {
         errors.push(`Step ${idx + 1} references non-existent agent`);
       }
     });
@@ -298,9 +302,34 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       setError(`Cannot launch: ${validation.errors.join(', ')}`);
       return;
     }
+    
+    // Collect all agent IDs referenced in the plan (both main and pending)
+    const planAgentIds = new Set(plan.map(step => step.agentId));
+    
+    // Find any pending agents that are referenced in the plan but not yet accepted
+    const missingAgents = pendingNewAgents.filter(a => planAgentIds.has(a.id));
+    
+    if (missingAgents.length > 0) {
+      // Auto-accept pending agents that are referenced in the plan
+      onAddAgents(missingAgents);
+      setPendingNewAgents(prev => prev.filter(a => !planAgentIds.has(a.id)));
+      setNotification({
+        message: `Auto-accepted ${missingAgents.length} pending agent(s) referenced in the plan.`,
+        type: 'info'
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+    
     setError(null);
     if (onGoalChange) onGoalChange(goal);
-    onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal);
+    
+    // Collect all agents referenced in the plan (both main and pending)
+    const agentsToInclude = [
+      ...agents,
+      ...pendingNewAgents.filter(a => planAgentIds.has(a.id))
+    ];
+    
+    onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal, agentsToInclude);
   };
 
   return (

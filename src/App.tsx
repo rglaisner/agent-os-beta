@@ -129,7 +129,7 @@ export default function AgentPlatform() {
   };
 
   // Updated to accept files and process type
-  const runOrchestratedSimulation = async (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => {
+  const runOrchestratedSimulation = async (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', agentsToInclude?: Agent[]) => {
     setIsRunning(true);
     setActiveTab('MONITOR');
     setLogs([]);
@@ -145,7 +145,8 @@ export default function AgentPlatform() {
           ws.onopen = () => {
             if (!resolved) {
               resolved = true;
-              ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
+              const agentsToSend = agentsToInclude || agents;
+              ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents: agentsToSend, plan, files, processType } }));
               resolve(ws);
             }
           };
@@ -203,7 +204,8 @@ export default function AgentPlatform() {
         const ws = new WebSocket(backendUrl);
         wsRef.current = ws;
         ws.onopen = () => {
-            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents, plan, files, processType } }));
+            const agentsToSend = agentsToInclude || agents;
+            ws.send(JSON.stringify({ action: "START_MISSION", payload: { agents: agentsToSend, plan, files, processType } }));
             // Extract mission ID from response if available
             // For now, we'll track it from the mission creation
         };
@@ -337,9 +339,9 @@ export default function AgentPlatform() {
                   agents={agents}
                   allAgents={DEFAULT_AGENTS}
                   backendUrl={backendUrl}
-                  onLaunch={(plan, files, processType, goal) => {
+                  onLaunch={(plan, files, processType, goal, agentsToInclude) => {
                     if (goal) setMissionGoal(goal);
-                    runOrchestratedSimulation(plan, files, processType);
+                    runOrchestratedSimulation(plan, files, processType, agentsToInclude);
                   }}
                   onGoalChange={setMissionGoal}
                   isRunning={isRunning}
