@@ -38,6 +38,12 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
 
+  // New Agent Review State
+  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
+  const [showAgentReview, setShowAgentReview] = useState(false);
+  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
   // Agent Editor State
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   
@@ -252,8 +258,9 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                   humanInput: a.humanInput || false
               }));
           if (uniqueNewAgents.length > 0) {
-              // Show suggestion box instead of auto-adding
-              setPendingSuggestedAgents(uniqueNewAgents);
+              setPendingNewAgents(uniqueNewAgents);
+              setSelectedAgentIds(new Set(uniqueNewAgents.map(a => a.id)));
+              setShowAgentReview(true);
           }
       }
 
@@ -680,6 +687,76 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
             })}
         </div>
       </div>
+
+      {/* Feedback Message */}
+      {feedbackMessage && (
+        <div className="fixed bottom-4 right-4 bg-indigo-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 animate-in slide-in-from-bottom-4">
+          <Info className="w-5 h-5 text-indigo-300" />
+          {feedbackMessage}
+          <button onClick={() => setFeedbackMessage(null)} className="ml-2 hover:text-indigo-200"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {/* Agent Review Modal */}
+      {showAgentReview && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[80vh]">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <Users className="w-5 h-5 text-indigo-600" />
+                Review Proposed Agents
+              </h3>
+            </div>
+            <div className="p-5 overflow-y-auto">
+              <p className="text-slate-600 mb-4 text-sm">
+                The planner suggests adding new agents to handle this mission. Review and select the ones you want to keep.
+                Tasks for rejected agents will be reassigned.
+              </p>
+              <div className="space-y-3">
+                {pendingNewAgents.map(agent => (
+                  <div 
+                    key={agent.id} 
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedAgentIds.has(agent.id) ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:border-slate-300'}`}
+                    onClick={() => {
+                        const newSet = new Set(selectedAgentIds);
+                        if (newSet.has(agent.id)) newSet.delete(agent.id);
+                        else newSet.add(agent.id);
+                        setSelectedAgentIds(newSet);
+                    }}
+                  >
+                    <div className={`w-5 h-5 rounded border flex items-center justify-center mt-0.5 ${selectedAgentIds.has(agent.id) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'}`}>
+                        {selectedAgentIds.has(agent.id) && <Check className="w-3 h-3" />}
+                    </div>
+                    <div>
+                        <div className="font-bold text-slate-800 text-sm">{agent.role}</div>
+                        <div className="text-xs text-slate-500 mt-1 line-clamp-2">{agent.backstory}</div>
+                        <div className="flex gap-2 mt-2">
+                            {agent.toolIds.map(t => (
+                                <span key={t} className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{t}</span>
+                            ))}
+                        </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-200 bg-slate-50 rounded-b-xl flex justify-end gap-3">
+               <button 
+                 onClick={handleRejectAgents}
+                 className="px-4 py-2 text-slate-600 font-medium hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
+               >
+                 Reject All
+               </button>
+               <button 
+                 onClick={handleAcceptAgents}
+                 className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all active:scale-95"
+               >
+                 Confirm Selection
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Agent Editor Modal */}
       {editingAgent && (

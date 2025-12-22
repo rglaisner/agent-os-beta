@@ -48,6 +48,7 @@ except ImportError:
         def run(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - shim
             ...
 
+
 from core.socket_handler import WebSocketHandler
 from core.config import (
     DEFAULT_MODEL,
