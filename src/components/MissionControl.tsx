@@ -277,8 +277,9 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       errors.push('Plan cannot be empty');
     }
     
-    // Combine existing agents and pending new agents for validation
-    const allAvailableAgents = [...agentsForValidation, ...pendingNewAgents];
+    // Combine current agents (which includes newly added ones) and pending new agents for validation
+    // Use 'agents' prop (not agentsForValidation) since it reflects the current state after onAddAgents
+    const allAvailableAgents = [...agents, ...pendingNewAgents];
     
     planToValidate.forEach((step, idx) => {
       if (!step.instruction || step.instruction.trim().length === 0) {

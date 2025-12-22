@@ -52,16 +52,13 @@ async def websocket_handler(websocket: WebSocket):
     Handle WebSocket connections for mission execution.
     Includes input validation and robust error handling.
     """
-    # Origin validation for CORS (prevents 403 errors on Render)
-    origin = websocket.headers.get("origin")
-    allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
-    
     # Accept the connection FIRST - this is critical for WebSocket connections
     # FastAPI will reject with 403 if we don't accept quickly enough
+    # We accept immediately without any checks to avoid ASGI state issues
     try:
         await websocket.accept()
     except Exception as e:
-        # If accept fails, log and return (connection already rejected)
+        # If accept fails, log and return (connection already rejected or in wrong state)
         logging.error(f"Failed to accept WebSocket connection during handshake: {e}")
         return
     
