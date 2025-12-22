@@ -181,8 +181,8 @@ async def generate_plan(request: PlanRequest):
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
 
     # Include agent IDs in the description so LLM can reference them correctly
-    agent_desc = "\n".join([f"- ID: {a['id']}, Role: {a['role']}, Tools: {a['toolIds']}" for a in request.agents])
-    agent_ids = [a['id'] for a in request.agents]
+    agent_desc = "\n".join([f"- ID: {a.id}, Role: {a.role}, Tools: {a.toolIds}" for a in request.agents])
+    agent_ids = [a.id for a in request.agents]
 
     # Updated prompt to handle process type
     process_instruction = ""
