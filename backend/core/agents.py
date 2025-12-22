@@ -1,23 +1,52 @@
 import os
 import asyncio
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Protocol
 from fastapi import WebSocket
 from crewai import Agent, Task, Crew, Process, LLM
-from crewai_tools import (
-    SerperDevTool,
-    FileReadTool,
-    ScrapeWebsiteTool,
-    YoutubeChannelSearchTool,
-    PDFSearchTool,
-    DirectoryReadTool,
-    CSVSearchTool,
-    DOCXSearchTool,
-    JSONSearchTool,
-    BraveSearchTool,
-    SerpApiGoogleSearchTool,
-    RagTool,
-    BaseTool,
-)
+
+# Robust import for CrewAI tools across versions:
+# - Newer versions have removed or relocated BaseTool
+# - We only need BaseTool as a structural/type hint
+try:
+    from crewai_tools import (
+        SerperDevTool,
+        FileReadTool,
+        ScrapeWebsiteTool,
+        YoutubeChannelSearchTool,
+        PDFSearchTool,
+        DirectoryReadTool,
+        CSVSearchTool,
+        DOCXSearchTool,
+        JSONSearchTool,
+        BraveSearchTool,
+        SerpApiGoogleSearchTool,
+        RagTool,
+        BaseTool,
+    )
+except ImportError:
+    # Fallback: import tools without BaseTool and define a lightweight protocol
+    from crewai_tools import (
+        SerperDevTool,
+        FileReadTool,
+        ScrapeWebsiteTool,
+        YoutubeChannelSearchTool,
+        PDFSearchTool,
+        DirectoryReadTool,
+        CSVSearchTool,
+        DOCXSearchTool,
+        JSONSearchTool,
+        BraveSearchTool,
+        SerpApiGoogleSearchTool,
+        RagTool,
+    )
+
+    class BaseTool(Protocol):
+        """Minimal protocol for type-checking tools when BaseTool is unavailable."""
+
+        name: str
+
+        def run(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - shim
+            ...
 
 from core.socket_handler import WebSocketHandler
 from core.config import (
@@ -132,22 +161,33 @@ def create_agents(
 
     agents_map = {}
     for a_data in agent_data_list:
-        tools = get_tools(a_data.toolIds, websocket, a_data.humanInput, uploaded_files)
+        # Support both Pydantic AgentModel instances and plain dicts (for tests or legacy callers)
+        def _get(field: str, default: Any = None):
+            if hasattr(a_data, field):
+                return getattr(a_data, field)
+            if isinstance(a_data, dict):
+                return a_data.get(field, default)
+            return default
 
-        backstory = a_data.backstory
+        tool_ids = _get("toolIds", []) or []
+        human_input = bool(_get("humanInput", False))
+
+        tools = get_tools(tool_ids, websocket, human_input, uploaded_files)
+
+        backstory = _get("backstory", "") or ""
         if uploaded_files:
             backstory += f"\n\nNOTICE: You have access to these files: {uploaded_files}. Use your tools to read them if needed."
 
         # Configure reasoning and iteration limits
-        allow_reasoning = a_data.reasoning
-        max_iter = a_data.max_iter or 25
+        allow_reasoning = bool(_get("reasoning", False))
+        max_iter = _get("max_iter", 25) or 25
         # Mapping max_reasoning_attempts to max_retry_limit as it's the closest analog for "attempts"
-        max_retry_limit = a_data.max_reasoning_attempts or 2
+        max_retry_limit = _get("max_reasoning_attempts", 2) or 2
 
         # Standard CrewAI Agent creation
         agent = Agent(
-            role=a_data.role,
-            goal=a_data.goal,
+            role=_get("role", "Agent"),
+            goal=_get("goal", "Complete the assigned tasks"),
             backstory=backstory,
             tools=tools,
             llm=llm,
@@ -157,7 +197,7 @@ def create_agents(
             max_retry_limit=max_retry_limit,
             allow_delegation=allow_reasoning,
         )
-        agents_map[a_data.id] = agent
+        agents_map[_get("id", f"agent-{len(agents_map)+1}")] = agent
 
     # QC Agent Injection
     qc_backstory = (
@@ -207,7 +247,13 @@ def create_tasks(
         )
 
     for step in plan:
-        agent_id = step.agentId
+        # Support both Pydantic PlanStep instances and plain dicts
+        if hasattr(step, "agentId"):
+            agent_id = step.agentId
+            instruction = step.instruction
+        else:
+            agent_id = step.get("agentId", "")
+            instruction = step.get("instruction", "")
         agent = agents_map.get(agent_id)
         if not agent:
             # Fallback and log warning
@@ -216,7 +262,7 @@ def create_tasks(
                 f"Warning: Agent ID '{agent_id}' not found in map. Falling back to '{agent.role}'."
             )
 
-        desc = step.instruction
+        desc = instruction
         if uploaded_files:
             desc += f" (Refer to attached files: {uploaded_files})"
         tasks.append(Task(description=desc, expected_output="Report", agent=agent))
