@@ -87,13 +87,26 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       // Include SYSTEM agents (like sys-manager) for plan generation
       const allAgentsForPlanning = agentsForValidation;
       
+      // Ensure all agents have required fields for backend (humanInput is required)
+      const agentsForBackend = allAgentsForPlanning.map(agent => ({
+        id: agent.id,
+        role: agent.role,
+        goal: agent.goal,
+        backstory: agent.backstory,
+        toolIds: agent.toolIds || [],
+        humanInput: agent.humanInput ?? false, // Default to false if not set
+        reasoning: agent.reasoning ?? false,
+        max_reasoning_attempts: agent.max_reasoning_attempts,
+        max_iter: agent.max_iter,
+      }));
+      
       const planUrl = `${backendUrl}/api/plan`;
-      console.log('[MissionControl] Planning request:', { planUrl, goal, agentCount: allAgentsForPlanning.length });
+      console.log('[MissionControl] Planning request:', { planUrl, goal, agentCount: agentsForBackend.length });
       
       const response = await fetch(planUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, agents: allAgentsForPlanning, process_type: processType })
+        body: JSON.stringify({ goal, agents: agentsForBackend, process_type: processType })
       });
 
       console.log('[MissionControl] Planning response:', { status: response.status, statusText: response.statusText, ok: response.ok });
