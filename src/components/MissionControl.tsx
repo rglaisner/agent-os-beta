@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
+import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit, Check, UserPlus } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
 import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // Import shared types
@@ -10,7 +10,6 @@ interface MissionControlProps {
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
-  onAgentsChange?: (agents: Agent[]) => void;
 }
 
 export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
@@ -23,6 +22,10 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
   const [error, setError] = useState<string | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [isModified, setIsModified] = useState(false);
+
+  // Agent Proposal State
+  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
+  const [notification, setNotification] = useState<string | null>(null);
 
   // Agent Editor State
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -79,7 +82,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           const existingIds = new Set(agents.map(a => a.id));
           const uniqueNewAgents = data.newAgents.filter(a => !existingIds.has(a.id));
           if (uniqueNewAgents.length > 0) {
-              onAddAgents(uniqueNewAgents);
+              setPendingNewAgents(uniqueNewAgents);
           }
       }
 
@@ -98,7 +101,48 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     }
   };
 
-  const handleStepChange = (idx: number, field: keyof PlanStep, value: any) => {
+  const reassignTasks = (rejectedAgentIds: string[]) => {
+      if (rejectedAgentIds.length === 0) return;
+
+      // Find a fallback agent: Manager or first available
+      const fallbackAgent = agents.find(a => a.role.toLowerCase().includes('manager')) || agents[0];
+      
+      if (!fallbackAgent) {
+          console.warn("No fallback agent found!");
+          return;
+      }
+
+      const newPlan = plan.map(step => {
+          if (rejectedAgentIds.includes(step.agentId)) {
+              return { ...step, agentId: fallbackAgent.id };
+          }
+          return step;
+      });
+
+      setPlan(newPlan);
+      setNotification(`Tasks for rejected agents were reassigned to ${fallbackAgent.name || fallbackAgent.role}.`);
+      
+      // Clear notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+  };
+
+  const handleAcceptAgents = () => {
+      // In this simple version, we accept ALL pending agents.
+      // If you want selective acceptance, you'd need a selection state in the UI.
+      // For now, let's assume "Accept" means "Accept All".
+      onAddAgents(pendingNewAgents);
+      setPendingNewAgents([]);
+      setNotification("New agents joined the team!");
+      setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleRejectAgents = () => {
+      const rejectedIds = pendingNewAgents.map(a => a.id);
+      reassignTasks(rejectedIds);
+      setPendingNewAgents([]);
+  };
+
+  const handleStepChange = (idx: number, field: keyof PlanStep, value: string | number) => {
       const newPlan = [...plan];
       newPlan[idx] = { ...newPlan[idx], [field]: value };
       setPlan(newPlan);
@@ -112,7 +156,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-          id: Date.now(),
+          id: String(Date.now()),
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -245,6 +289,49 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
             </button>
           )}
         </div>
+
+        {notification && (
+            <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
+                <Info className="w-4 h-4" />
+                {notification}
+            </div>
+        )}
+
+        {pendingNewAgents.length > 0 && (
+            <div className="mb-4 bg-violet-50 border border-violet-200 p-4 rounded-lg flex flex-col gap-3 shrink-0">
+                <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2 text-violet-800 font-bold text-sm">
+                        <UserPlus className="w-4 h-4" />
+                        The Planner suggests adding new experts:
+                    </div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                    {pendingNewAgents.map(a => (
+                        <div key={a.id} className="bg-white border border-violet-200 px-3 py-1.5 rounded-full text-xs font-bold text-violet-700 shadow-sm flex items-center gap-2">
+                            <span>{a.avatar || '🤖'}</span>
+                            {a.role}
+                        </div>
+                    ))}
+                </div>
+                <div className="flex gap-3 mt-1">
+                    <button 
+                        onClick={handleAcceptAgents}
+                        className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-1 transition-colors"
+                    >
+                        <Check className="w-3 h-3" /> Accept All
+                    </button>
+                    <button 
+                        onClick={handleRejectAgents}
+                        className="px-4 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded shadow-sm flex items-center gap-1 transition-colors"
+                    >
+                        <X className="w-3 h-3" /> Reject All
+                    </button>
+                </div>
+                <p className="text-[10px] text-violet-600/70 italic">
+                    Rejecting agents will reassign their tasks to existing team members.
+                </p>
+            </div>
+        )}
 
         {isModified && (
             <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
