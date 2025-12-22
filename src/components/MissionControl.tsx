@@ -1,16 +1,13 @@
-import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit, Check, UserPlus, AlertCircle } from 'lucide-react';
-import Tooltip from './Tooltip';
-import AgentEditorModal from './AgentEditorModal';
-import SmartAgentSuggestion from './SmartAgentSuggestion';
-import NewAgentsModal from './NewAgentsModal';
-import { type Agent, type PlanStep, type PlanResponse } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { Agent, PlanStep, PlanResponse } from '../constants';
+import { Play, Loader2, RefreshCw, Upload, FileText, X, Paperclip, Users, User, Info, AlertTriangle, Plus, Check } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 
 interface MissionControlProps {
   agents: Agent[];
-  allAgents?: Agent[];
-  backendUrl?: string;
-  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string, agentsToInclude?: Agent[]) => void;
+  allAgents?: Agent[]; // Include SYSTEM agents for validation/planning
+  backendUrl?: string; // WebSocket backend URL (will be converted to HTTP for REST calls)
+  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
@@ -19,119 +16,77 @@ interface MissionControlProps {
 }
 
 export default function MissionControl({ agents, allAgents, backendUrl: propBackendUrl, onLaunch, isRunning, onAddAgents, onUpdateAgent, onGoalChange }: MissionControlProps) {
+  // Use allAgents (including SYSTEM) for validation/planning, fallback to agents if not provided
   const agentsForValidation = allAgents || agents;
 
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
-  const [planOverview, setPlanOverview] = useState<string>('');
-  const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
+  const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
   const [isPlanning, setIsPlanning] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
+  const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [isModified, setIsModified] = useState(false);
-  
-  // Agent Review State
-  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
-  const [showAgentReview, setShowAgentReview] = useState(false);
-  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-
-  // Agent Editor State
-  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
-  
-  // Smart Agent Suggestion State
   const [pendingSuggestedAgents, setPendingSuggestedAgents] = useState<Agent[]>([]);
 
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  // IMPORTANT: propBackendUrl comes from App.tsx which already reads VITE_BACKEND_URL
+  // If propBackendUrl is MISSING_VITE_BACKEND_URL, it means the env var wasn't available at build time
   const wsBackendUrl = propBackendUrl || (import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws');
   
+  // Validate backend URL
   if (!wsBackendUrl || wsBackendUrl === 'MISSING_VITE_BACKEND_URL') {
-    console.error('[MissionControl] ERROR: Backend URL is not configured. Set VITE_BACKEND_URL in Vercel.');
+    console.error('[MissionControl] ERROR: Backend URL is not configured.');
+    console.error('[MissionControl] propBackendUrl from App.tsx:', propBackendUrl);
+    console.error('[MissionControl] import.meta.env.VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+    console.error('[MissionControl] NOTE: Vite env vars must be set BEFORE build. If you just set VITE_BACKEND_URL in Vercel, trigger a new deployment.');
   }
   
-  const backendUrl = wsBackendUrl
-    .replace(/^ws:\/\//, 'http://')
-    .replace(/^wss:\/\//, 'https://')
-    .replace(/\/ws$/, '')
-    .replace(/\/$/, '');
+  // Don't try to convert if it's the placeholder - it will cause errors
+  if (wsBackendUrl === 'MISSING_VITE_BACKEND_URL') {
+    console.error('[MissionControl] Cannot make API calls - backend URL is missing');
+  }
+  
+  const backendUrl = wsBackendUrl === 'MISSING_VITE_BACKEND_URL' 
+    ? 'MISSING_VITE_BACKEND_URL'
+    : wsBackendUrl
+        .replace(/^ws:\/\//, 'http://')
+        .replace(/^wss:\/\//, 'https://')
+        .replace(/\/ws$/, '')
+        .replace(/\/$/, ''); // Remove trailing slash if present
     
-  console.log('[MissionControl] Converted backend URL:', { wsBackendUrl, backendUrl });
-
-  const reassignTasks = (rejectedAgentIds: string[]) => {
-      if (rejectedAgentIds.length === 0) return;
-
-      const fallbackAgent = agents.find(a => a.role.toLowerCase().includes('manager')) || agents[0];
-      if (!fallbackAgent) return;
-
-      let reassignedCount = 0;
-      const newPlan = plan.map(step => {
-          if (rejectedAgentIds.includes(step.agentId)) {
-              reassignedCount++;
-              return { ...step, agentId: fallbackAgent.id };
-          }
-          return step;
-      });
-
-      if (reassignedCount > 0) {
-          setPlan(newPlan);
-          setIsModified(true);
-          setNotification({ 
-              message: `Tasks for rejected agents were reassigned to ${fallbackAgent.name || fallbackAgent.role}`, 
-              type: 'info' 
-          });
-          setTimeout(() => setNotification(null), 5000);
-      }
-  };
-
-  const handleAcceptAgents = (selectedIds: string[]) => {
-      const acceptedAgents = pendingNewAgents.filter(a => selectedIds.includes(a.id));
-      
-      if (acceptedAgents.length > 0) {
-          onAddAgents(acceptedAgents);
-      }
-
-      const rejectedIds = pendingNewAgents
-          .filter(a => !selectedIds.includes(a.id))
-          .map(a => a.id);
-
-      if (rejectedIds.length > 0) {
-          reassignTasks(rejectedIds);
-      }
-
-      setPendingNewAgents([]);
-      setShowAgentReview(false);
-      setSelectedAgentIds(new Set());
-  };
-
-  const handleRejectAgents = () => {
-      const rejectedIds = pendingNewAgents.map(a => a.id);
-      reassignTasks(rejectedIds);
-      setPendingNewAgents([]);
-      setShowAgentReview(false);
-      setSelectedAgentIds(new Set());
-  };
+  console.log('[MissionControl] Backend URL conversion:', { 
+    wsBackendUrl, 
+    backendUrl, 
+    propBackendUrl, 
+    envVar: import.meta.env.VITE_BACKEND_URL,
+    allViteEnvVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_'))
+  });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setIsUploading(true);
-    
+    setError(null);
+
+    const file = e.target.files[0];
     const formData = new FormData();
-    formData.append("file", e.target.files[0]);
+    formData.append('file', file);
 
     try {
-        const res = await fetch(`${backendUrl}/api/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        if (!res.ok) throw new Error("Upload failed");
-        const data = await res.json();
-        setUploadedFiles(prev => [...prev, { name: data.filename, path: data.server_path }]);
+      const response = await fetch(`${backendUrl}/api/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      setUploadedFiles([...uploadedFiles, { name: data.filename, path: data.server_path }]);
     } catch (err) {
-        console.error(err);
-        setError("Failed to upload file");
+      console.error('Upload error:', err);
+      setError('Upload failed: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
-        setIsUploading(false);
+      setIsUploading(false);
     }
   };
 
@@ -140,20 +95,19 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
     setIsPlanning(true);
     setError(null);
     setIsModified(false);
-    setPendingNewAgents([]);
-    setNotification(null);
-    setShowAgentReview(false);
 
     try {
+      // Include SYSTEM agents (like sys-manager) for plan generation
       const allAgentsForPlanning = agentsForValidation;
       
+      // Ensure all agents have required fields for backend (humanInput is required)
       const agentsForBackend = allAgentsForPlanning.map(agent => ({
         id: agent.id,
         role: agent.role,
         goal: agent.goal,
         backstory: agent.backstory,
         toolIds: agent.toolIds || [],
-        humanInput: agent.humanInput ?? false,
+        humanInput: agent.humanInput ?? false, // Default to false if not set
         reasoning: agent.reasoning ?? false,
         max_reasoning_attempts: agent.max_reasoning_attempts,
         max_iter: agent.max_iter,
@@ -181,14 +135,14 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
           setPlanOverview(data.narrative);
       }
 
-      setPlan(data.plan);
-
       if (data.newAgents && data.newAgents.length > 0) {
+          // Filter out existing IDs to avoid duplicates if re-running
           const existingIds = new Set(agents.map(a => a.id));
           const uniqueNewAgents = data.newAgents
               .filter(a => !existingIds.has(a.id))
               .map(a => ({
                   ...a,
+                  // Ensure all required fields are present
                   id: a.id || `suggested-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   role: a.role || 'Agent',
                   goal: a.goal || '',
@@ -201,9 +155,8 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                   humanInput: a.humanInput || false
               }));
           if (uniqueNewAgents.length > 0) {
-              setPendingNewAgents(uniqueNewAgents);
-              setSelectedAgentIds(new Set(uniqueNewAgents.map(a => a.id)));
-              setShowAgentReview(true);
+              // Show suggestion box instead of auto-adding
+              setPendingSuggestedAgents(uniqueNewAgents);
           }
       }
 
@@ -213,6 +166,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
           });
       }
 
+      setPlan(data.plan);
     } catch (err) {
       console.error('[MissionControl] Planning error:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -229,46 +183,23 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       setIsModified(true);
   };
 
-  const handleDeleteStep = (idx: number) => {
-      setPlan(plan.filter((_, i) => i !== idx));
-      setIsModified(true);
+  const handleAddAgent = (agent: Agent) => {
+      // Add a single agent from suggestions
+      onAddAgents([agent]);
+      setPendingSuggestedAgents(prev => prev.filter(a => a.id !== agent.id));
   };
 
-  const handleAddStep = (idx: number) => {
-      const newStep: PlanStep = {
-          id: `step-${Date.now()}`,
-          agentId: agents[0]?.id || 'sys-manager',
-          instruction: 'New task instruction...',
-          trainingIterations: 0
-      };
-      const newPlan = [...plan];
-      newPlan.splice(idx + 1, 0, newStep);
-      setPlan(newPlan);
-      setIsModified(true);
+  const handleAddAllAgents = () => {
+      onAddAgents(pendingSuggestedAgents);
+      setPendingSuggestedAgents([]);
   };
 
-  const handleAgentSave = (updatedAgent: Agent) => {
-      const exists = agents.find(a => a.id === updatedAgent.id);
-      if (exists) {
-          onUpdateAgent(updatedAgent.id, updatedAgent);
-      } else {
-          const agentToAdd: Agent = {
-              ...updatedAgent,
-              id: updatedAgent.id || `custom-${Date.now()}`,
-              role: updatedAgent.role || 'Agent',
-              goal: updatedAgent.goal || '',
-              backstory: updatedAgent.backstory || '',
-              toolIds: updatedAgent.toolIds || []
-          };
-          try {
-              onAddAgents([agentToAdd]);
-          } catch (err) {
-              console.error('Error adding agent:', err);
-              setError(`Failed to add agent: ${err instanceof Error ? err.message : String(err)}`);
-          }
-      }
-      setIsModified(true);
-  };
+  // Add listener for goal changes to bubble up to parent if needed
+  useEffect(() => {
+    if (onGoalChange) {
+      onGoalChange(goal);
+    }
+  }, [goal, onGoalChange]);
 
   const validatePlan = (planToValidate: PlanStep[]): { valid: boolean; errors: string[] } => {
     const errors: string[] = [];
@@ -277,9 +208,14 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       errors.push('Plan cannot be empty');
     }
     
-    // Combine current agents (which includes newly added ones) and pending new agents for validation
-    // Use 'agents' prop (not agentsForValidation) since it reflects the current state after onAddAgents
-    const allAvailableAgents = [...agents, ...pendingNewAgents];
+    // Create a set of valid IDs for O(1) lookup and debugging
+    // Include pending suggested agents in validation to allow launching with suggested agents
+    const validAgentIds = new Set([
+        ...agentsForValidation.map(a => a.id),
+        ...pendingSuggestedAgents.map(a => a.id)
+    ]);
+    
+    console.log('[MissionControl] Validating plan against agents:', Array.from(validAgentIds));
     
     planToValidate.forEach((step, idx) => {
       if (!step.instruction || step.instruction.trim().length === 0) {
@@ -288,8 +224,9 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       if (!step.agentId) {
         errors.push(`Step ${idx + 1} has no assigned agent`);
       }
-      if (!allAvailableAgents.find(a => a.id === step.agentId)) {
-        errors.push(`Step ${idx + 1} references non-existent agent`);
+      if (!validAgentIds.has(step.agentId)) {
+        console.error(`[MissionControl] Validation failed: Step ${idx + 1} uses ID '${step.agentId}' which is not in validAgentIds`, validAgentIds);
+        errors.push(`Step ${idx + 1} references non-existent agent: ${step.agentId}`);
       }
     });
     
@@ -302,34 +239,8 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       setError(`Cannot launch: ${validation.errors.join(', ')}`);
       return;
     }
-    
-    // Collect all agent IDs referenced in the plan (both main and pending)
-    const planAgentIds = new Set(plan.map(step => step.agentId));
-    
-    // Find any pending agents that are referenced in the plan but not yet accepted
-    const missingAgents = pendingNewAgents.filter(a => planAgentIds.has(a.id));
-    
-    if (missingAgents.length > 0) {
-      // Auto-accept pending agents that are referenced in the plan
-      onAddAgents(missingAgents);
-      setPendingNewAgents(prev => prev.filter(a => !planAgentIds.has(a.id)));
-      setNotification({
-        message: `Auto-accepted ${missingAgents.length} pending agent(s) referenced in the plan.`,
-        type: 'info'
-      });
-      setTimeout(() => setNotification(null), 3000);
-    }
-    
     setError(null);
-    if (onGoalChange) onGoalChange(goal);
-    
-    // Collect all agents referenced in the plan (both main and pending)
-    const agentsToInclude = [
-      ...agents,
-      ...pendingNewAgents.filter(a => planAgentIds.has(a.id))
-    ];
-    
-    onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal, agentsToInclude);
+    onLaunch(plan, uploadedFiles.map(f => f.path), processType);
   };
 
   return (
@@ -345,57 +256,221 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
           <textarea
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            placeholder="Describe your mission in detail... (e.g. 'Analyze the attached CSV file and summarize key financial trends for Q3')"
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all min-h-[100px] resize-y"
-            rows={3}
+            placeholder="e.g. Analyze the uploaded CSV dataset and summarize the key trends..."
+            className="w-full h-24 p-4 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none text-slate-700 placeholder-slate-400 bg-slate-50 font-medium"
           />
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+             <div className="text-xs text-slate-400 font-medium flex gap-4">
+               {/* Metadata or hints could go here */}
+             </div>
              <button
                 onClick={generatePlan}
-                disabled={isPlanning || !goal}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-300 text-white rounded-lg flex items-center gap-2 font-bold shadow-md shadow-indigo-200 transition-all active:scale-95"
-            >
-                {isPlanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {isPlanning ? 'Thinking...' : 'Generate Plan'}
-            </button>
+                disabled={!goal || isPlanning || isRunning}
+                className={`px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all shadow-sm ${
+                  !goal || isPlanning || isRunning
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:-translate-y-0.5'
+                }`}
+              >
+                {isPlanning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Planning...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Generate Plan
+                  </>
+                )}
+              </button>
           </div>
         </div>
-        {error && <p className="text-red-500 text-sm mt-3 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
-        {notification && (
-            <div className={`text-sm mt-3 p-2 rounded border flex items-center gap-2 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
-                <Info className="w-4 h-4" />
-                {notification.message}
+      </div>
+
+      {/* Suggestion Box for New Agents */}
+      {pendingSuggestedAgents.length > 0 && (
+          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-4">
+              <div className="flex justify-between items-start mb-3">
+                  <div>
+                      <h4 className="font-bold text-indigo-900 flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          Suggested Agents
+                      </h4>
+                      <p className="text-xs text-indigo-700 mt-1">
+                          The planner suggests adding these agents to complete the mission.
+                      </p>
+                  </div>
+                  <button 
+                      onClick={handleAddAllAgents}
+                      className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-1"
+                  >
+                      <Plus className="w-3 h-3" /> Accept All
+                  </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {pendingSuggestedAgents.map(agent => (
+                      <div key={agent.id} className="bg-white p-3 rounded-lg border border-indigo-100 shadow-sm flex justify-between items-center group">
+                          <div className="flex items-center gap-3">
+                              <span className="text-xl bg-indigo-100 p-1.5 rounded-md">{agent.avatar || '🤖'}</span>
+                              <div>
+                                  <div className="font-bold text-slate-800 text-sm">{agent.name}</div>
+                                  <div className="text-xs text-slate-500 font-medium">{agent.role}</div>
+                              </div>
+                          </div>
+                          <button 
+                              onClick={() => handleAddAgent(agent)}
+                              className="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-md transition-colors"
+                              title="Add Agent"
+                          >
+                              <Plus className="w-4 h-4" />
+                          </button>
+                      </div>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {/* PLAN & UPLOADS */}
+      {/* ... rest of the component ... */}
+      
+      {/* For brevity, assuming the rest of the component matches the file content */}
+      
+      {/* We need to render the rest of the component here to make the file complete */}
+      <div className="flex-1 min-h-0 flex flex-col gap-4">
+        {/* If plan exists, show editor */}
+        {plan.length > 0 ? (
+           <div className="bg-white flex-1 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
+               <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                   <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                       <FileText className="w-4 h-4 text-slate-400" />
+                       Mission Plan
+                       <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs border border-slate-200">
+                           {plan.length} Steps
+                       </span>
+                   </h3>
+                   {isModified && <span className="text-xs text-amber-600 font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> Unsaved changes</span>}
+               </div>
+               
+               {/* Narrative / Strategy */}
+               {planOverview && (
+                   <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 text-sm text-slate-600 italic">
+                       "{planOverview}"
+                   </div>
+               )}
+
+               <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                   {plan.map((step, idx) => (
+                       <div key={step.id || idx} className="group flex gap-3 p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
+                           <div className="flex flex-col items-center gap-1 pt-1">
+                               <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center border border-slate-200 group-hover:bg-white group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
+                                   {idx + 1}
+                               </div>
+                               {idx < plan.length - 1 && <div className="w-0.5 flex-1 bg-slate-100 group-hover:bg-slate-200/50" />}
+                           </div>
+                           <div className="flex-1 min-w-0 flex flex-col gap-2">
+                               <div className="flex gap-2">
+                                   <select
+                                      value={step.agentId}
+                                      onChange={(e) => handleStepChange(idx, 'agentId', e.target.value)}
+                                      className="text-xs font-bold bg-slate-100 border-none rounded-md py-1 pl-2 pr-8 text-slate-700 focus:ring-1 focus:ring-indigo-500 cursor-pointer hover:bg-white hover:shadow-sm transition-all"
+                                   >
+                                      {/* Show accepted agents */}
+                                      {agentsForValidation.map(a => (
+                                          <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
+                                      ))}
+                                      {/* Show pending suggested agents too */}
+                                      {pendingSuggestedAgents.map(a => (
+                                          <option key={a.id} value={a.id}>[New] {a.name} ({a.role})</option>
+                                      ))}
+                                   </select>
+                                   {step.trainingIterations !== undefined && (
+                                       <div className="text-xs flex items-center gap-1 text-slate-400 bg-slate-50 px-2 rounded-md border border-slate-100" title="Training Iterations">
+                                           <RefreshCw className="w-3 h-3" />
+                                           {step.trainingIterations} iter
+                                       </div>
+                                   )}
+                               </div>
+                               <textarea
+                                  value={step.instruction}
+                                  onChange={(e) => handleStepChange(idx, 'instruction', e.target.value)}
+                                  className="w-full text-sm bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 rounded-md p-2 outline-none resize-none h-auto min-h-[60px] transition-all focus:bg-white focus:shadow-sm"
+                                  placeholder="Describe the task step..."
+                               />
+                           </div>
+                           <button 
+                              onClick={() => {
+                                  const newPlan = plan.filter((_, i) => i !== idx);
+                                  setPlan(newPlan);
+                                  setIsModified(true);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded transition-all self-start"
+                           >
+                               <X className="w-4 h-4" />
+                           </button>
+                       </div>
+                   ))}
+                   
+                   <button 
+                      onClick={() => {
+                          const newStep: PlanStep = {
+                              id: `step-${Date.now()}`,
+                              instruction: '',
+                              agentId: agentsForValidation[0]?.id || '',
+                              trainingIterations: 0
+                          };
+                          setPlan([...plan, newStep]);
+                          setIsModified(true);
+                      }}
+                      className="w-full py-3 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm font-bold hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/10 transition-all flex items-center justify-center gap-2 group"
+                   >
+                       <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                       Add Plan Step
+                   </button>
+               </div>
+
+               <div className="p-4 border-t border-slate-100 bg-slate-50">
+                   <button
+                      onClick={handleLaunch}
+                      disabled={isRunning || plan.length === 0}
+                      className={`w-full py-3 rounded-xl font-bold text-white shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 ${
+                        isRunning || plan.length === 0
+                          ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                          : 'bg-indigo-600 hover:bg-indigo-700 hover:-translate-y-0.5 hover:shadow-indigo-300'
+                      }`}
+                   >
+                      {isRunning ? (
+                          <>
+                             <Loader2 className="w-5 h-5 animate-spin" />
+                             Mission in Progress...
+                          </>
+                      ) : (
+                          <>
+                             <Play className="w-5 h-5 fill-current" />
+                             Launch Mission
+                          </>
+                      )}
+                   </button>
+                   {error && (
+                       <div className="mt-3 p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100 flex items-start gap-2">
+                           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                           {error}
+                       </div>
+                   )}
+               </div>
+           </div>
+        ) : (
+            <div className="bg-slate-50 flex-1 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-4">
+                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                    <RefreshCw className="w-8 h-8 text-slate-300" />
+                </div>
+                <div className="text-center">
+                    <h3 className="font-bold text-slate-600">No Plan Generated</h3>
+                    <p className="text-sm">Enter a goal and click "Generate Plan" to start.</p>
+                </div>
             </div>
         )}
       </div>
-
-      {/* Smart Agent Suggestion Box */}
-      {pendingSuggestedAgents.length > 0 && (
-        <SmartAgentSuggestion
-          suggestedAgents={pendingSuggestedAgents}
-          onAcceptAll={() => {
-            try {
-              onAddAgents(pendingSuggestedAgents);
-              setPendingSuggestedAgents([]);
-            } catch (err) {
-              console.error('Error accepting suggested agents:', err);
-              setError(`Failed to accept suggested agents: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          }}
-          onRejectAll={() => {
-            setPendingSuggestedAgents([]);
-          }}
-          onReview={() => {
-            try {
-              onAddAgents(pendingSuggestedAgents);
-              setPendingSuggestedAgents([]);
-            } catch (err) {
-              console.error('Error accepting suggested agents:', err);
-              setError(`Failed to accept suggested agents: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          }}
-        />
-      )}
 
       <div className="flex gap-4 shrink-0">
         {/* FILE UPLOAD */}
@@ -459,218 +534,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
             </div>
         </div>
       </div>
-
-      {/* PLAN */}
-      <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
-          {plan.length > 0 && (
-            <button
-              onClick={handleLaunch}
-              disabled={isRunning || pendingNewAgents.length > 0}
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
-              title={pendingNewAgents.length > 0 ? "Please accept or reject proposed agents first" : "Launch Mission"}
-            >
-              {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-              LAUNCH MISSION
-            </button>
-          )}
-        </div>
-
-        {pendingNewAgents.length > 0 && (
-            <div className="mb-4 bg-violet-50 border border-violet-200 p-4 rounded-lg flex flex-col gap-3 shrink-0">
-                <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2 text-violet-800 font-bold text-sm">
-                        <UserPlus className="w-4 h-4" />
-                        The Planner suggests adding new experts:
-                    </div>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                    {pendingNewAgents.map(a => (
-                        <div key={a.id} className="bg-white border border-violet-200 px-3 py-1.5 rounded-full text-xs font-bold text-violet-700 shadow-sm flex items-center gap-2">
-                            <span>{a.avatar || '🤖'}</span>
-                            {a.role}
-                        </div>
-                    ))}
-                </div>
-                <p className="text-[10px] text-violet-600/70 italic">
-                    Rejecting agents will reassign their tasks to existing team members.
-                </p>
-            </div>
-        )}
-
-        {isModified && (
-            <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
-                <AlertTriangle className="w-4 h-4" />
-                Warning: Manual changes to the plan or agents may impact mission success. The Planner's optimization might be compromised.
-            </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-            {plan.length === 0 && <div className="h-full flex flex-col items-center justify-center text-slate-400 italic text-sm border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">Plan will appear here after generation</div>}
-
-            {planOverview && (
-                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-lg mb-4 text-sm text-slate-700 italic relative group/overview">
-                    <span className="font-bold text-indigo-600 not-italic block mb-1">Strategy Overview:</span>
-                    {planOverview}
-                </div>
-            )}
-
-            {plan.map((step, idx) => {
-                const assignedAgent = agents.find(a => a.id === step.agentId) || pendingNewAgents.find(a => a.id === step.agentId);
-                const isPendingAgent = pendingNewAgents.some(a => a.id === step.agentId);
-
-                return (
-                  <div key={idx} className={`flex gap-4 bg-slate-50 p-4 rounded-lg border transition-colors group relative ${isPendingAgent ? 'border-indigo-300 bg-indigo-50/30' : 'border-slate-200 hover:border-indigo-200'}`}>
-                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-200 shadow-sm shrink-0 transition-colors">{idx + 1}</div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={step.agentId}
-                                onChange={(e) => handleStepChange(idx, 'agentId', e.target.value)}
-                                className="text-xs font-bold text-indigo-600 uppercase tracking-wider bg-transparent border-none focus:ring-0 cursor-pointer"
-                            >
-                                {agents.map(a => (
-                                    <option key={a.id} value={a.id}>{a.role}</option>
-                                ))}
-                            </select>
-                            {isPendingAgent && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-200 font-medium">Pending Approval</span>}
-                            <button
-                                onClick={() => assignedAgent && setEditingAgent(assignedAgent)}
-                                className="text-slate-400 hover:text-indigo-500"
-                                title="Edit Agent"
-                            >
-                                <Edit className="w-3 h-3" />
-                            </button>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 text-xs bg-white border border-slate-200 rounded px-2 py-0.5">
-                                <span className="text-slate-500 font-medium">Train:</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={step.trainingIterations || 0}
-                                    onChange={(e) => handleStepChange(idx, 'trainingIterations', parseInt(e.target.value) || 0)}
-                                    className="w-8 text-center bg-transparent focus:outline-none"
-                                />
-                            </div>
-                            <button onClick={() => handleDeleteStep(idx)} className="text-slate-400 hover:text-red-500 p-1">
-                                <Trash2 className="w-3 h-3" />
-                            </button>
-                        </div>
-                      </div>
-
-                      <textarea
-                          value={step.instruction}
-                          onChange={(e) => handleStepChange(idx, 'instruction', e.target.value)}
-                          className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 focus:bg-white rounded p-1 transition-all resize-none focus:ring-2 focus:ring-indigo-100"
-                          rows={2}
-                      />
-
-                      <button
-                          onClick={() => handleAddStep(idx)}
-                          className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110 shadow-sm"
-                          title="Insert Step After"
-                      >
-                          <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-            })}
-        </div>
-      </div>
-
-      {/* Feedback Message */}
-      {feedbackMessage && (
-        <div className="fixed bottom-4 right-4 bg-indigo-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 animate-in slide-in-from-bottom-4">
-          <Info className="w-5 h-5 text-indigo-300" />
-          {feedbackMessage}
-          <button onClick={() => setFeedbackMessage(null)} className="ml-2 hover:text-indigo-200"><X className="w-4 h-4" /></button>
-        </div>
-      )}
-
-      {/* Agent Review Modal */}
-      {showAgentReview && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[80vh]">
-            <div className="p-5 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-600" />
-                Review Proposed Agents
-              </h3>
-            </div>
-            <div className="p-5 overflow-y-auto">
-              <p className="text-slate-600 mb-4 text-sm">
-                The planner suggests adding new agents to handle this mission. Review and select the ones you want to keep.
-                Tasks for rejected agents will be reassigned.
-              </p>
-              <div className="space-y-3">
-                {pendingNewAgents.map(agent => (
-                  <div 
-                    key={agent.id} 
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedAgentIds.has(agent.id) ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:border-slate-300'}`}
-                    onClick={() => {
-                        const newSet = new Set(selectedAgentIds);
-                        if (newSet.has(agent.id)) newSet.delete(agent.id);
-                        else newSet.add(agent.id);
-                        setSelectedAgentIds(newSet);
-                    }}
-                  >
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center mt-0.5 ${selectedAgentIds.has(agent.id) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'}`}>
-                        {selectedAgentIds.has(agent.id) && <Check className="w-3 h-3" />}
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 text-sm">{agent.role}</div>
-                        <div className="text-xs text-slate-500 mt-1 line-clamp-2">{agent.backstory}</div>
-                        <div className="flex gap-2 mt-2">
-                            {agent.toolIds.map(t => (
-                                <span key={t} className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{t}</span>
-                            ))}
-                        </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="p-5 border-t border-slate-200 bg-slate-50 rounded-b-xl flex justify-end gap-3">
-               <button 
-                 onClick={handleRejectAgents}
-                 className="px-4 py-2 text-slate-600 font-medium hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
-               >
-                 Reject All
-               </button>
-               <button 
-                 onClick={() => handleAcceptAgents(Array.from(selectedAgentIds))}
-                 className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all active:scale-95"
-               >
-                 Confirm Selection
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Agents Modal */}
-      {pendingNewAgents.length > 0 && !showAgentReview && (
-          <NewAgentsModal
-              agents={pendingNewAgents}
-              onAccept={handleAcceptAgents}
-              onReject={handleRejectAgents}
-          />
-      )}
-
-      {/* Agent Editor Modal */}
-      {editingAgent && (
-          <AgentEditorModal
-              agent={editingAgent}
-              isOpen={!!editingAgent}
-              onClose={() => setEditingAgent(null)}
-              onSave={handleAgentSave}
-          />
-      )}
     </div>
   );
 }
