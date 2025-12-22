@@ -42,6 +42,20 @@ export default function AgentPlatform() {
       }
       return 'ws://localhost:8000/ws'; // Default for local development
     }
+    
+    // In production (Vercel), check if we can detect Vercel environment
+    // If we're on Vercel but VITE_BACKEND_URL is missing, use hardcoded fallback
+    const isVercel = typeof window !== 'undefined' && 
+      (window.location.hostname.includes('vercel.app') || 
+       import.meta.env.VITE_VERCEL_ENV);
+    
+    if (isVercel) {
+      // Hardcoded fallback for Vercel production (should be overridden by env var)
+      console.warn('[App] WARNING: VITE_BACKEND_URL not found, using hardcoded fallback for Vercel');
+      console.warn('[App] Please set VITE_BACKEND_URL = wss://agent-os-backend.onrender.com/ws in Vercel Settings → Environment Variables');
+      return 'wss://agent-os-backend.onrender.com/ws';
+    }
+    
     // In production (Vercel), VITE_BACKEND_URL MUST be set
     console.error('[App] ERROR: VITE_BACKEND_URL is not set in production!');
     console.error('[App] Current hostname:', typeof window !== 'undefined' ? window.location.hostname : 'unknown');
