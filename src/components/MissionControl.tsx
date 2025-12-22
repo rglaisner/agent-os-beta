@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
+import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit, Check, UserPlus } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
 import SmartAgentSuggestion from './SmartAgentSuggestion';
@@ -31,6 +31,10 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [isModified, setIsModified] = useState(false);
+
+  // Agent Proposal State
+  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
+  const [notification, setNotification] = useState<string | null>(null);
 
   // Agent Editor State
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -451,6 +455,49 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
             </button>
           )}
         </div>
+
+        {notification && (
+            <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
+                <Info className="w-4 h-4" />
+                {notification}
+            </div>
+        )}
+
+        {pendingNewAgents.length > 0 && (
+            <div className="mb-4 bg-violet-50 border border-violet-200 p-4 rounded-lg flex flex-col gap-3 shrink-0">
+                <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2 text-violet-800 font-bold text-sm">
+                        <UserPlus className="w-4 h-4" />
+                        The Planner suggests adding new experts:
+                    </div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                    {pendingNewAgents.map(a => (
+                        <div key={a.id} className="bg-white border border-violet-200 px-3 py-1.5 rounded-full text-xs font-bold text-violet-700 shadow-sm flex items-center gap-2">
+                            <span>{a.avatar || '🤖'}</span>
+                            {a.role}
+                        </div>
+                    ))}
+                </div>
+                <div className="flex gap-3 mt-1">
+                    <button 
+                        onClick={handleAcceptAgents}
+                        className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-1 transition-colors"
+                    >
+                        <Check className="w-3 h-3" /> Accept All
+                    </button>
+                    <button 
+                        onClick={handleRejectAgents}
+                        className="px-4 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded shadow-sm flex items-center gap-1 transition-colors"
+                    >
+                        <X className="w-3 h-3" /> Reject All
+                    </button>
+                </div>
+                <p className="text-[10px] text-violet-600/70 italic">
+                    Rejecting agents will reassign their tasks to existing team members.
+                </p>
+            </div>
+        )}
 
         {isModified && (
             <div className="mb-4 bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
