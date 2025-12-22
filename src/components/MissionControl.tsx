@@ -2,18 +2,25 @@ import React, { useState } from 'react';
 import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
-import NewAgentsModal from './NewAgentsModal';
+import SmartAgentSuggestion from './SmartAgentSuggestion';
 import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // Import shared types
 
 interface MissionControlProps {
   agents: Agent[];
-  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical') => void;
+  allAgents?: Agent[]; // Include SYSTEM agents for validation/planning
+  backendUrl?: string; // WebSocket backend URL (will be converted to HTTP for REST calls)
+  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
+  onAgentsChange?: (agents: Agent[]) => void;
+  onGoalChange?: (goal: string) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
+export default function MissionControl({ agents, allAgents, backendUrl: propBackendUrl, onLaunch, isRunning, onAddAgents, onUpdateAgent, onGoalChange }: MissionControlProps) {
+  // Use allAgents (including SYSTEM) for validation/planning, fallback to agents if not provided
+  const agentsForValidation = allAgents || agents;
+
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
@@ -27,11 +34,26 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   // Agent Editor State
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
-  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
+  
+  // Smart Agent Suggestion State
+  const [pendingSuggestedAgents, setPendingSuggestedAgents] = useState<Agent[]>([]);
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL 
-    ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
-    : 'http://localhost:8000';
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  // Use prop if provided (should be WebSocket URL), otherwise fallback to env var
+  const wsBackendUrl = propBackendUrl || (import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws');
+  
+  // Validate backend URL
+  if (!wsBackendUrl || wsBackendUrl === 'MISSING_VITE_BACKEND_URL') {
+    console.error('[MissionControl] ERROR: Backend URL is not configured. Set VITE_BACKEND_URL in Vercel.');
+  }
+  
+  const backendUrl = wsBackendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
+    
+  console.log('[MissionControl] Converted backend URL:', { wsBackendUrl, backendUrl });
 
   const reassignTasks = (rejectedAgentIds: string[]) => {
       if (rejectedAgentIds.length === 0) return;
@@ -119,13 +141,38 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     setIsModified(false);
 
     try {
-      const response = await fetch(`${backendUrl}/api/plan`, {
+      // Include SYSTEM agents (like sys-manager) for plan generation
+      const allAgentsForPlanning = agentsForValidation;
+      
+      // Ensure all agents have required fields for backend (humanInput is required)
+      const agentsForBackend = allAgentsForPlanning.map(agent => ({
+        id: agent.id,
+        role: agent.role,
+        goal: agent.goal,
+        backstory: agent.backstory,
+        toolIds: agent.toolIds || [],
+        humanInput: agent.humanInput ?? false, // Default to false if not set
+        reasoning: agent.reasoning ?? false,
+        max_reasoning_attempts: agent.max_reasoning_attempts,
+        max_iter: agent.max_iter,
+      }));
+      
+      const planUrl = `${backendUrl}/api/plan`;
+      console.log('[MissionControl] Planning request:', { planUrl, goal, agentCount: agentsForBackend.length });
+      
+      const response = await fetch(planUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, agents, process_type: processType })
+        body: JSON.stringify({ goal, agents: agentsForBackend, process_type: processType })
       });
 
-      if (!response.ok) throw new Error('Backend failed');
+      console.log('[MissionControl] Planning response:', { status: response.status, statusText: response.statusText, ok: response.ok });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[MissionControl] Planning error response:', errorText);
+        throw new Error(`Backend returned ${response.status}: ${errorText.substring(0, 200)}`);
+      }
       const data: PlanResponse = await response.json();
 
       if (data.narrative) {
@@ -135,9 +182,25 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
       if (data.newAgents && data.newAgents.length > 0) {
           // Filter out existing IDs to avoid duplicates if re-running
           const existingIds = new Set(agents.map(a => a.id));
-          const uniqueNewAgents = data.newAgents.filter(a => !existingIds.has(a.id));
+          const uniqueNewAgents = data.newAgents
+              .filter(a => !existingIds.has(a.id))
+              .map(a => ({
+                  ...a,
+                  // Ensure all required fields are present
+                  id: a.id || `suggested-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  role: a.role || 'Agent',
+                  goal: a.goal || '',
+                  backstory: a.backstory || '',
+                  toolIds: a.toolIds || [],
+                  type: a.type || 'SUGGESTED',
+                  name: a.name || a.role,
+                  avatar: a.avatar || '🤖',
+                  color: a.color || 'bg-emerald-500',
+                  humanInput: a.humanInput || false
+              }));
           if (uniqueNewAgents.length > 0) {
-              setPendingNewAgents(uniqueNewAgents);
+              // Show suggestion box instead of auto-adding
+              setPendingSuggestedAgents(uniqueNewAgents);
           }
       }
 
@@ -149,8 +212,9 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
       setPlan(data.plan);
     } catch (err) {
-      console.error(err);
-      setError("Planning failed. Is the backend running?");
+      console.error('[MissionControl] Planning error:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Planning failed: ${errorMessage}. Backend URL: ${backendUrl}/api/plan`);
     } finally {
       setIsPlanning(false);
     }
@@ -170,7 +234,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-          id: String(Date.now()),
+          id: `step-${Date.now()}`, // Ensure string ID
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -189,9 +253,55 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           onUpdateAgent(updatedAgent.id, updatedAgent);
       } else {
           // Should not happen in edit mode usually
-          onAddAgents([updatedAgent]);
+          // Ensure all required fields are present before adding
+          const agentToAdd: Agent = {
+              ...updatedAgent,
+              id: updatedAgent.id || `custom-${Date.now()}`,
+              role: updatedAgent.role || 'Agent',
+              goal: updatedAgent.goal || '',
+              backstory: updatedAgent.backstory || '',
+              toolIds: updatedAgent.toolIds || []
+          };
+          try {
+              onAddAgents([agentToAdd]);
+          } catch (err) {
+              console.error('Error adding agent:', err);
+              setError(`Failed to add agent: ${err instanceof Error ? err.message : String(err)}`);
+          }
       }
       setIsModified(true);
+  };
+
+  const validatePlan = (planToValidate: PlanStep[]): { valid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
+    if (planToValidate.length === 0) {
+      errors.push('Plan cannot be empty');
+    }
+    
+    planToValidate.forEach((step, idx) => {
+      if (!step.instruction || step.instruction.trim().length === 0) {
+        errors.push(`Step ${idx + 1} has no instruction`);
+      }
+      if (!step.agentId) {
+        errors.push(`Step ${idx + 1} has no assigned agent`);
+      }
+      if (!agentsForValidation.find(a => a.id === step.agentId)) {
+        errors.push(`Step ${idx + 1} references non-existent agent`);
+      }
+    });
+    
+    return { valid: errors.length === 0, errors };
+  };
+
+  const handleLaunch = () => {
+    const validation = validatePlan(plan);
+    if (!validation.valid) {
+      setError(`Cannot launch: ${validation.errors.join(', ')}`);
+      return;
+    }
+    setError(null);
+    onLaunch(plan, uploadedFiles.map(f => f.path), processType);
   };
 
   return (
@@ -230,6 +340,35 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
             </div>
         )}
       </div>
+
+      {/* Smart Agent Suggestion Box */}
+      {pendingSuggestedAgents.length > 0 && (
+        <SmartAgentSuggestion
+          suggestedAgents={pendingSuggestedAgents}
+          onAcceptAll={() => {
+            try {
+              onAddAgents(pendingSuggestedAgents);
+              setPendingSuggestedAgents([]);
+            } catch (err) {
+              console.error('Error accepting suggested agents:', err);
+              setError(`Failed to accept suggested agents: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }}
+          onRejectAll={() => {
+            setPendingSuggestedAgents([]);
+          }}
+          onReview={() => {
+            // For now, just accept all on review - can be enhanced to show a modal
+            try {
+              onAddAgents(pendingSuggestedAgents);
+              setPendingSuggestedAgents([]);
+            } catch (err) {
+              console.error('Error accepting suggested agents:', err);
+              setError(`Failed to accept suggested agents: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }}
+        />
+      )}
 
       <div className="flex gap-4 shrink-0">
         {/* FILE UPLOAD */}
@@ -300,7 +439,10 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (
             <button
-              onClick={() => onLaunch(plan, uploadedFiles.map(f => f.path), processType)}
+              onClick={() => {
+                if (onGoalChange) onGoalChange(goal);
+                handleLaunch();
+              }}
               disabled={isRunning}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
             >
