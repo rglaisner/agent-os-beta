@@ -15,14 +15,13 @@ export default function AgentEditorModal({ agent, isOpen, onClose, onSave }: Age
   // Initialize form data when modal opens, but only if agent changes
   useEffect(() => {
     if (isOpen) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(prev => prev.id === agent.id ? prev : { ...agent });
     }
   }, [agent, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleChange = (field: keyof Agent, value: any) => {
+  const handleChange = (field: keyof Agent, value: string | number | boolean | string[]) => {
       setFormData(prev => ({ ...prev, [field]: value }));
   };
 

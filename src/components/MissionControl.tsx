@@ -119,7 +119,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     }
   };
 
-  const handleStepChange = (idx: number, field: keyof PlanStep, value: any) => {
+  const handleStepChange = (idx: number, field: keyof PlanStep, value: string | number) => {
       const newPlan = [...plan];
       newPlan[idx] = { ...newPlan[idx], [field]: value };
       setPlan(newPlan);
@@ -133,8 +133,12 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
+<<<<<<< HEAD
           id: `step-${Date.now()}`, // Ensure string ID
           id: `step-${Date.now()}`,
+=======
+          id: String(Date.now()),
+>>>>>>> dab8830 (Debug and optimize: Fix CrewAI imports, add tests, Render/Vercel deployment readiness)
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
