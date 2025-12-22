@@ -79,13 +79,22 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       // Include SYSTEM agents (like sys-manager) for plan generation
       const allAgentsForPlanning = agentsForValidation;
       
-      const response = await fetch(`${backendUrl}/api/plan`, {
+      const planUrl = `${backendUrl}/api/plan`;
+      console.log('[MissionControl] Planning request:', { planUrl, goal, agentCount: allAgentsForPlanning.length });
+      
+      const response = await fetch(planUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal, agents: allAgentsForPlanning, process_type: processType })
       });
 
-      if (!response.ok) throw new Error('Backend failed');
+      console.log('[MissionControl] Planning response:', { status: response.status, statusText: response.statusText, ok: response.ok });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[MissionControl] Planning error response:', errorText);
+        throw new Error(`Backend returned ${response.status}: ${errorText.substring(0, 200)}`);
+      }
       const data: PlanResponse = await response.json();
 
       if (data.narrative) {
@@ -125,8 +134,9 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
 
       setPlan(data.plan);
     } catch (err) {
-      console.error(err);
-      setError("Planning failed. Is the backend running?");
+      console.error('[MissionControl] Planning error:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`Planning failed: ${errorMessage}. Backend URL: ${backendUrl}/api/plan`);
     } finally {
       setIsPlanning(false);
     }

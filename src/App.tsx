@@ -33,6 +33,11 @@ export default function AgentPlatform() {
     return 'ws://localhost:8000/ws'; // Default for local development
   };
   const backendUrl = import.meta.env.VITE_BACKEND_URL || getDefaultBackendUrl();
+  
+  // Log backend URL for debugging (only in dev)
+  if (import.meta.env.DEV) {
+    console.log('[App] Backend URL:', backendUrl, 'VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+  }
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS.filter(a => a.type !== 'SYSTEM'));
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
