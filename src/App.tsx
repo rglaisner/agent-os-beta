@@ -52,11 +52,18 @@ export default function AgentPlatform() {
   
   const backendUrl = import.meta.env.VITE_BACKEND_URL || getDefaultBackendUrl();
   
-  // Log backend URL for debugging
-  console.log('[App] Backend URL:', backendUrl, 'VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL, 'Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'unknown');
+  // Log backend URL for debugging - show ALL env vars that start with VITE_ to help diagnose
+  const viteEnvVars = Object.keys(import.meta.env).filter(k => k.startsWith('VITE_'));
+  console.log('[App] Backend URL:', backendUrl);
+  console.log('[App] VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+  console.log('[App] All VITE_ env vars:', viteEnvVars);
+  console.log('[App] Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'unknown');
+  console.log('[App] Mode:', import.meta.env.MODE, 'Dev:', import.meta.env.DEV, 'Prod:', import.meta.env.PROD);
   
   if (backendUrl === 'MISSING_VITE_BACKEND_URL') {
     console.error('[App] CRITICAL: VITE_BACKEND_URL is not configured. Planning and API calls will fail.');
+    console.error('[App] Please verify in Vercel: Settings → Environment Variables → VITE_BACKEND_URL = wss://agent-os-backend.onrender.com/ws');
+    console.error('[App] After setting, trigger a new deployment (Vercel may need to rebuild to pick up env vars)');
   }
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS.filter(a => a.type !== 'SYSTEM'));
   const [logs, setLogs] = useState<LogEntry[]>([]);
