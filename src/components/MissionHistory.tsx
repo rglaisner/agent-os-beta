@@ -17,30 +17,48 @@ interface MissionHistoryProps {
 export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Convert WebSocket URL (wss://) to HTTP URL (https://) for the API
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   useEffect(() => {
-    fetch(`${httpUrl}/api/missions`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-            setMissions(data);
-        } else {
-            console.warn("Mission history data is not an array:", data);
-            setMissions([]);
+    const fetchMissions = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${httpUrl}/api/missions`);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
         }
-        setLoading(false);
-      })
-      .catch(err => {
+        const data = await res.json();
+        
+        // Handle both array and object responses (backward compatibility)
+        let missionsArray: Mission[] = [];
+        if (Array.isArray(data)) {
+          missionsArray = data;
+        } else if (data && Array.isArray(data.missions)) {
+          missionsArray = data.missions;
+        } else {
+          console.warn("Mission history data is not in expected format:", data);
+          setError("Received unexpected data format from server");
+        }
+        
+        setMissions(missionsArray);
+      } catch (err) {
         console.error("Failed to fetch history:", err);
+        setError(err instanceof Error ? err.message : "Failed to load mission history");
         setMissions([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    
+    fetchMissions();
   }, [httpUrl]);
 
   if (loading) return <div className="p-4 text-slate-400 text-sm">Loading history...</div>;
@@ -50,6 +68,11 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
       <div className="p-3 bg-slate-50 border-b border-slate-200 font-bold text-slate-700 flex items-center gap-2 text-xs uppercase tracking-wider">
         <Clock className="w-4 h-4 text-indigo-500" /> Recent Missions
       </div>
+      {error && (
+        <div className="p-3 bg-red-50 border-b border-red-100 text-red-600 text-xs">
+          Error: {error}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto bg-white">
         {missions.map((m) => (
           <div key={m.id} className="p-3 border-b border-slate-100 hover:bg-slate-50 transition-colors flex justify-between items-center group">

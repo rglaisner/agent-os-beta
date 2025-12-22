@@ -42,11 +42,16 @@ class WebHumanInputTool(BaseTool):
             future.result(timeout=5)  # Wait up to 5 seconds for send
         except RuntimeError:
             # No running loop, create new one
-            asyncio.run(self.websocket.send_json({
-                "type": "HUMAN_INPUT_REQUEST", 
-                "requestId": req_id, 
-                "content": question
-            }))
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            asyncio.run_coroutine_threadsafe(
+                self.websocket.send_json({
+                    "type": "HUMAN_INPUT_REQUEST", 
+                    "requestId": req_id, 
+                    "content": question
+                }),
+                loop
+            )
         except Exception as e:
             return f"Error sending human input request: {str(e)}"
 
