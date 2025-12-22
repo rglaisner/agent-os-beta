@@ -180,7 +180,9 @@ async def generate_plan(request: PlanRequest):
     # Using gemini-2.0-flash for plan generation
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0.7)
 
-    agent_desc = "\n".join([f"- {a['role']} (Tools: {a['toolIds']})" for a in request.agents])
+    # Include agent IDs in the description so LLM can reference them correctly
+    agent_desc = "\n".join([f"- ID: {a['id']}, Role: {a['role']}, Tools: {a['toolIds']}" for a in request.agents])
+    agent_ids = [a['id'] for a in request.agents]
 
     # Updated prompt to handle process type
     process_instruction = ""
@@ -196,11 +198,14 @@ async def generate_plan(request: PlanRequest):
     If the available agents are insufficient to complete the goal, you MUST suggest new agents.
     Assess if agents need training iterations (especially for low-context tasks). Default is 0.
 
+    CRITICAL: When assigning agents to steps, you MUST use one of these EXACT agent IDs: {', '.join(agent_ids)}
+    Do NOT invent new agent IDs. Use the IDs provided above.
+
     Create a JSON object with the following structure:
     {{
       "narrative": "A strategic summary of the plan (2-3 sentences). Explain WHY this strategy was chosen.",
       "plan": [
-          {{ "id": "step-1", "agentId": "agent-id", "instruction": "Step details", "trainingIterations": 0 }}
+          {{ "id": "step-1", "agentId": "{agent_ids[0] if agent_ids else 'sys-manager'}", "instruction": "Step details", "trainingIterations": 0 }}
       ],
       "newAgents": [
           {{ "id": "unique-id", "role": "Specific Role Name", "goal": "Detailed Goal", "backstory": "Detailed Backstory", "toolIds": ["tool-id", ...], "humanInput": false }}

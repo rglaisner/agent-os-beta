@@ -18,7 +18,13 @@ export default function KnowledgeBase({ backendUrl }: KnowledgeBaseProps) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [summary, setSummary] = useState<string>('');
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  // Handle both ws://localhost:8000/ws and wss://domain.com/ws formats
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   const fetchDocs = useCallback(async () => {
     try {

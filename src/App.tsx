@@ -289,6 +289,7 @@ export default function AgentPlatform() {
                 />
                 <MissionControl
                   agents={agents}
+                  allAgents={DEFAULT_AGENTS}
                   onLaunch={(plan, files, processType, goal) => {
                     if (goal) setMissionGoal(goal);
                     runOrchestratedSimulation(plan, files, processType);

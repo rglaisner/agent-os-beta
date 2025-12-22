@@ -7,6 +7,7 @@ import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // 
 
 interface MissionControlProps {
   agents: Agent[];
+  allAgents?: Agent[]; // Include SYSTEM agents for validation/planning
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
@@ -32,9 +33,13 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
   // Smart Agent Suggestion State
   const [pendingSuggestedAgents, setPendingSuggestedAgents] = useState<Agent[]>([]);
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL 
-    ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
-    : 'http://localhost:8000';
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const wsBackendUrl = import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws';
+  const backendUrl = wsBackendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -66,10 +71,13 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     setIsModified(false);
 
     try {
+      // Include SYSTEM agents (like sys-manager) for plan generation
+      const allAgentsForPlanning = agentsForValidation;
+      
       const response = await fetch(`${backendUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, agents, process_type: processType })
+        body: JSON.stringify({ goal, agents: allAgentsForPlanning, process_type: processType })
       });
 
       if (!response.ok) throw new Error('Backend failed');
@@ -185,7 +193,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
       if (!step.agentId) {
         errors.push(`Step ${idx + 1} has no assigned agent`);
       }
-      if (!agents.find(a => a.id === step.agentId)) {
+      if (!agentsForValidation.find(a => a.id === step.agentId)) {
         errors.push(`Step ${idx + 1} references non-existent agent`);
       }
     });
