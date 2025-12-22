@@ -28,6 +28,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [isModified, setIsModified] = useState(false);
 
@@ -53,6 +54,62 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
     .replace(/\/$/, ''); // Remove trailing slash if present
     
   console.log('[MissionControl] Converted backend URL:', { wsBackendUrl, backendUrl });
+
+  const reassignTasks = (rejectedAgentIds: string[]) => {
+      if (rejectedAgentIds.length === 0) return;
+
+      // Find fallback agent: preferably "Manager", otherwise first agent
+      const manager = agents.find(a => a.role.toLowerCase().includes('manager'));
+      const fallbackAgent = manager || agents[0];
+      
+      if (!fallbackAgent) return;
+
+      let reassignedCount = 0;
+      const newPlan = plan.map(step => {
+          if (rejectedAgentIds.includes(step.agentId)) {
+              reassignedCount++;
+              return { ...step, agentId: fallbackAgent.id };
+          }
+          return step;
+      });
+
+      if (reassignedCount > 0) {
+          setPlan(newPlan);
+          setNotification({
+              message: `Reassigned ${reassignedCount} tasks from rejected agents to ${fallbackAgent.role}.`,
+              type: 'info'
+          });
+          // Clear notification after 5 seconds
+          setTimeout(() => setNotification(null), 5000);
+      }
+  };
+
+  const handleAcceptAgents = (selectedIds: string[]) => {
+      // 1. Add accepted agents
+      const acceptedAgents = pendingNewAgents.filter(a => selectedIds.includes(a.id));
+      if (acceptedAgents.length > 0) {
+          onAddAgents(acceptedAgents);
+      }
+
+      // 2. Identify rejected agents
+      const rejectedIds = pendingNewAgents
+          .filter(a => !selectedIds.includes(a.id))
+          .map(a => a.id);
+
+      // 3. Reassign tasks for rejected agents
+      if (rejectedIds.length > 0) {
+          reassignTasks(rejectedIds);
+      }
+
+      setPendingNewAgents([]);
+  };
+
+  const handleRejectAgents = () => {
+      // Treat all pending agents as rejected
+      const rejectedIds = pendingNewAgents.map(a => a.id);
+      reassignTasks(rejectedIds);
+      setPendingNewAgents([]);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -276,6 +333,12 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
           </div>
         </div>
         {error && <p className="text-red-500 text-sm mt-3 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
+        {notification && (
+            <div className={`text-sm mt-3 p-2 rounded border flex items-center gap-2 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
+                <Info className="w-4 h-4" />
+                {notification.message}
+            </div>
+        )}
       </div>
 
       {/* Smart Agent Suggestion Box */}
@@ -478,6 +541,14 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
               isOpen={!!editingAgent}
               onClose={() => setEditingAgent(null)}
               onSave={handleAgentSave}
+          />
+      )}
+
+      {pendingNewAgents.length > 0 && (
+          <NewAgentsModal
+              agents={pendingNewAgents}
+              onAccept={handleAcceptAgents}
+              onReject={handleRejectAgents}
           />
       )}
     </div>
