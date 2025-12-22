@@ -29,17 +29,25 @@ os.makedirs("static/plots", exist_ok=True) # Ensure plot directory exists
 
 # CORS Configuration - more secure defaults
 # Allow specific origins in production, use environment variable for flexibility
-allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
-if "*" in allowed_origins and os.getenv("ENVIRONMENT") == "production":
-    print("WARNING: CORS is set to allow all origins in production. Consider restricting this.")
-    allowed_origins = ["*"]  # Keep wildcard only if explicitly set
+cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
+# Default to allow all if not set or explicitly set to "*"
+if not allowed_origins or "*" in allowed_origins:
+    allowed_origins = ["*"]
+    if os.getenv("ENVIRONMENT") == "production":
+        print("WARNING: CORS is set to allow all origins in production. Consider restricting this.")
+else:
+    # Log configured origins for debugging
+    print(f"CORS configured to allow origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS", "PUT", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Mount Static Files (Uploads & Plots)
