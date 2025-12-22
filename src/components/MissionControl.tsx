@@ -7,7 +7,7 @@ interface MissionControlProps {
   agents: Agent[];
   allAgents?: Agent[]; // Include SYSTEM agents for validation/planning
   backendUrl?: string; // WebSocket backend URL (will be converted to HTTP for REST calls)
-  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
+  onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string, agentsToInclude?: Agent[]) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
@@ -241,8 +241,22 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       setError(`Cannot launch: ${validation.errors.join(', ')}`);
       return;
     }
+    
+    // Auto-accept any pending suggested agents that are referenced in the plan
+    const planAgentIds = new Set(plan.map(step => step.agentId));
+    const agentsToAutoAccept = pendingSuggestedAgents.filter(a => planAgentIds.has(a.id));
+    
+    if (agentsToAutoAccept.length > 0) {
+      // Automatically add them so they're available for the mission
+      onAddAgents(agentsToAutoAccept);
+      setPendingSuggestedAgents(prev => prev.filter(a => !planAgentIds.has(a.id)));
+    }
+    
+    // Include all agents (existing + auto-accepted) for the mission
+    const allAgentsForMission = [...agents, ...agentsToAutoAccept];
+    
     setError(null);
-    onLaunch(plan, uploadedFiles.map(f => f.path), processType);
+    onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal, allAgentsForMission);
   };
 
   return (
