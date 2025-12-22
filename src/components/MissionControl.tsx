@@ -133,12 +133,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-<<<<<<< HEAD
           id: `step-${Date.now()}`, // Ensure string ID
-          id: `step-${Date.now()}`,
-=======
-          id: String(Date.now()),
->>>>>>> dab8830 (Debug and optimize: Fix CrewAI imports, add tests, Render/Vercel deployment readiness)
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -337,10 +332,9 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (
             <button
-              onClick={handleLaunch}
               onClick={() => {
-                onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal);
                 if (onGoalChange) onGoalChange(goal);
+                handleLaunch();
               }}
               disabled={isRunning}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
