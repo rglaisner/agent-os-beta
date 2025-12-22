@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Agent, PlanStep, PlanResponse } from '../constants';
 import { Play, Loader2, RefreshCw, Upload, FileText, X, Paperclip, Users, User, Info, AlertTriangle, Plus, Check } from 'lucide-react';
-import { Tooltip } from './Tooltip';
+import Tooltip from './Tooltip';
 
 interface MissionControlProps {
   agents: Agent[];
