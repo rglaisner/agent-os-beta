@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
+import NewAgentsModal from './NewAgentsModal';
 import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // Import shared types
 
 interface MissionControlProps {
@@ -10,7 +11,6 @@ interface MissionControlProps {
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
   onUpdateAgent: (id: string, updates: Partial<Agent>) => void;
-  onAgentsChange?: (agents: Agent[]) => void;
 }
 
 export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent }: MissionControlProps) {
@@ -21,15 +21,73 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [isModified, setIsModified] = useState(false);
 
   // Agent Editor State
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL 
     ? import.meta.env.VITE_BACKEND_URL.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '')
     : 'http://localhost:8000';
+
+  const reassignTasks = (rejectedAgentIds: string[]) => {
+      if (rejectedAgentIds.length === 0) return;
+
+      // Find fallback agent: preferably "Manager", otherwise first agent
+      const manager = agents.find(a => a.role.toLowerCase().includes('manager'));
+      const fallbackAgent = manager || agents[0];
+      
+      if (!fallbackAgent) return;
+
+      let reassignedCount = 0;
+      const newPlan = plan.map(step => {
+          if (rejectedAgentIds.includes(step.agentId)) {
+              reassignedCount++;
+              return { ...step, agentId: fallbackAgent.id };
+          }
+          return step;
+      });
+
+      if (reassignedCount > 0) {
+          setPlan(newPlan);
+          setNotification({
+              message: `Reassigned ${reassignedCount} tasks from rejected agents to ${fallbackAgent.role}.`,
+              type: 'info'
+          });
+          // Clear notification after 5 seconds
+          setTimeout(() => setNotification(null), 5000);
+      }
+  };
+
+  const handleAcceptAgents = (selectedIds: string[]) => {
+      // 1. Add accepted agents
+      const acceptedAgents = pendingNewAgents.filter(a => selectedIds.includes(a.id));
+      if (acceptedAgents.length > 0) {
+          onAddAgents(acceptedAgents);
+      }
+
+      // 2. Identify rejected agents
+      const rejectedIds = pendingNewAgents
+          .filter(a => !selectedIds.includes(a.id))
+          .map(a => a.id);
+
+      // 3. Reassign tasks for rejected agents
+      if (rejectedIds.length > 0) {
+          reassignTasks(rejectedIds);
+      }
+
+      setPendingNewAgents([]);
+  };
+
+  const handleRejectAgents = () => {
+      // Treat all pending agents as rejected
+      const rejectedIds = pendingNewAgents.map(a => a.id);
+      reassignTasks(rejectedIds);
+      setPendingNewAgents([]);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -79,7 +137,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           const existingIds = new Set(agents.map(a => a.id));
           const uniqueNewAgents = data.newAgents.filter(a => !existingIds.has(a.id));
           if (uniqueNewAgents.length > 0) {
-              onAddAgents(uniqueNewAgents);
+              setPendingNewAgents(uniqueNewAgents);
           }
       }
 
@@ -98,7 +156,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
     }
   };
 
-  const handleStepChange = (idx: number, field: keyof PlanStep, value: any) => {
+  const handleStepChange = (idx: number, field: keyof PlanStep, value: string | number) => {
       const newPlan = [...plan];
       newPlan[idx] = { ...newPlan[idx], [field]: value };
       setPlan(newPlan);
@@ -112,7 +170,7 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-          id: Date.now(),
+          id: String(Date.now()),
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -165,6 +223,12 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
           </div>
         </div>
         {error && <p className="text-red-500 text-sm mt-3 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
+        {notification && (
+            <div className={`text-sm mt-3 p-2 rounded border flex items-center gap-2 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
+                <Info className="w-4 h-4" />
+                {notification.message}
+            </div>
+        )}
       </div>
 
       <div className="flex gap-4 shrink-0">
@@ -335,6 +399,14 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
               isOpen={!!editingAgent}
               onClose={() => setEditingAgent(null)}
               onSave={handleAgentSave}
+          />
+      )}
+
+      {pendingNewAgents.length > 0 && (
+          <NewAgentsModal
+              agents={pendingNewAgents}
+              onAccept={handleAcceptAgents}
+              onReject={handleRejectAgents}
           />
       )}
     </div>
