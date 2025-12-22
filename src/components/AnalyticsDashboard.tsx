@@ -45,7 +45,12 @@ export default function AnalyticsDashboard({ backendUrl }: AnalyticsDashboardPro
   const [agentPerformance, setAgentPerformance] = useState<AgentPerformance[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   useEffect(() => {
     fetchAnalytics();

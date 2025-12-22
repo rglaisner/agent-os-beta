@@ -11,7 +11,12 @@ export default function CommunicationLogs({ backendUrl, missionId }: Communicati
   const [patterns, setPatterns] = useState<any>(null);
   const [selectedMissionId, setSelectedMissionId] = useState<number | undefined>(missionId);
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   useEffect(() => {
     if (selectedMissionId) {

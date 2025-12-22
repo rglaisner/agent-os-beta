@@ -19,8 +19,12 @@ export default function MissionHistory({ backendUrl }: MissionHistoryProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Convert WebSocket URL (wss://) to HTTP URL (https://) for the API
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('wss://', 'https://').replace(/\/ws$/, '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   useEffect(() => {
     const fetchMissions = async () => {

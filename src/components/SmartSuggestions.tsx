@@ -22,7 +22,12 @@ export default function SmartSuggestions({
   const [toolSuggestions, setToolSuggestions] = useState<any>(null);
   const [composition, setComposition] = useState<any>(null);
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   const fetchAgentSuggestions = async () => {
     if (!goal.trim()) {

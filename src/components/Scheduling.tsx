@@ -16,7 +16,12 @@ export default function Scheduling({ backendUrl }: SchedulingProps) {
     webhook_url: ''
   });
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   useEffect(() => {
     fetchSchedules();

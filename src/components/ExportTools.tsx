@@ -9,7 +9,12 @@ interface ExportToolsProps {
 export default function ExportTools({ backendUrl, missionId }: ExportToolsProps) {
   const [exporting, setExporting] = useState<string | null>(null);
 
-  const httpUrl = backendUrl.replace('ws://', 'http://').replace('/ws', '');
+  // Convert WebSocket URL to HTTP URL for REST API calls
+  const httpUrl = backendUrl
+    .replace(/^ws:\/\//, 'http://')
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/\/ws$/, '')
+    .replace(/\/$/, ''); // Remove trailing slash if present
 
   const handleExport = async (format: 'json' | 'markdown' | 'pdf') => {
     setExporting(format);
