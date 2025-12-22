@@ -40,11 +40,19 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   // Convert WebSocket URL to HTTP URL for REST API calls
   // Use prop if provided (should be WebSocket URL), otherwise fallback to env var
   const wsBackendUrl = propBackendUrl || (import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws');
+  
+  // Validate backend URL
+  if (!wsBackendUrl || wsBackendUrl === 'MISSING_VITE_BACKEND_URL') {
+    console.error('[MissionControl] ERROR: Backend URL is not configured. Set VITE_BACKEND_URL in Vercel.');
+  }
+  
   const backendUrl = wsBackendUrl
     .replace(/^ws:\/\//, 'http://')
     .replace(/^wss:\/\//, 'https://')
     .replace(/\/ws$/, '')
     .replace(/\/$/, ''); // Remove trailing slash if present
+    
+  console.log('[MissionControl] Converted backend URL:', { wsBackendUrl, backendUrl });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;

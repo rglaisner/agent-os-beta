@@ -26,17 +26,37 @@ interface TokenUsage { inputTokens: number; outputTokens: number; totalCost: num
 
 export default function AgentPlatform() {
   // Auto-detect WebSocket protocol: use wss:// for HTTPS (production), ws:// for HTTP (localhost)
+  // In production (Vercel), VITE_BACKEND_URL MUST be set - don't default to localhost
   const getDefaultBackendUrl = () => {
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-      return 'wss://localhost:8000/ws'; // For local HTTPS testing
+    // Check if we're actually running on localhost (not just HTTPS from Vercel)
+    const isLocalhost = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || 
+       window.location.hostname === '127.0.0.1' ||
+       window.location.hostname.startsWith('192.168.') ||
+       window.location.hostname.startsWith('10.'));
+    
+    // Only use localhost defaults if we're actually on localhost
+    if (import.meta.env.DEV || isLocalhost) {
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+        return 'wss://localhost:8000/ws'; // For local HTTPS testing
+      }
+      return 'ws://localhost:8000/ws'; // Default for local development
     }
-    return 'ws://localhost:8000/ws'; // Default for local development
+    // In production (Vercel), VITE_BACKEND_URL MUST be set
+    console.error('[App] ERROR: VITE_BACKEND_URL is not set in production!');
+    console.error('[App] Current hostname:', typeof window !== 'undefined' ? window.location.hostname : 'unknown');
+    console.error('[App] Please set VITE_BACKEND_URL = wss://agent-os-backend.onrender.com/ws in Vercel environment variables.');
+    // Return a placeholder that will cause a clear error
+    return 'MISSING_VITE_BACKEND_URL';
   };
+  
   const backendUrl = import.meta.env.VITE_BACKEND_URL || getDefaultBackendUrl();
   
-  // Log backend URL for debugging (only in dev)
-  if (import.meta.env.DEV) {
-    console.log('[App] Backend URL:', backendUrl, 'VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+  // Log backend URL for debugging
+  console.log('[App] Backend URL:', backendUrl, 'VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL, 'Hostname:', typeof window !== 'undefined' ? window.location.hostname : 'unknown');
+  
+  if (backendUrl === 'MISSING_VITE_BACKEND_URL') {
+    console.error('[App] CRITICAL: VITE_BACKEND_URL is not configured. Planning and API calls will fail.');
   }
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS.filter(a => a.type !== 'SYSTEM'));
   const [logs, setLogs] = useState<LogEntry[]>([]);
