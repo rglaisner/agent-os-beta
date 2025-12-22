@@ -8,6 +8,7 @@ import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // 
 interface MissionControlProps {
   agents: Agent[];
   allAgents?: Agent[]; // Include SYSTEM agents for validation/planning
+  backendUrl?: string; // WebSocket backend URL (will be converted to HTTP for REST calls)
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
@@ -16,7 +17,10 @@ interface MissionControlProps {
   onGoalChange?: (goal: string) => void;
 }
 
-export default function MissionControl({ agents, onLaunch, isRunning, onAddAgents, onUpdateAgent, onGoalChange }: MissionControlProps) {
+export default function MissionControl({ agents, allAgents, backendUrl: propBackendUrl, onLaunch, isRunning, onAddAgents, onUpdateAgent, onGoalChange }: MissionControlProps) {
+  // Use allAgents (including SYSTEM) for validation/planning, fallback to agents if not provided
+  const agentsForValidation = allAgents || agents;
+
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
   const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
@@ -34,7 +38,8 @@ export default function MissionControl({ agents, onLaunch, isRunning, onAddAgent
   const [pendingSuggestedAgents, setPendingSuggestedAgents] = useState<Agent[]>([]);
 
   // Convert WebSocket URL to HTTP URL for REST API calls
-  const wsBackendUrl = import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws';
+  // Use prop if provided (should be WebSocket URL), otherwise fallback to env var
+  const wsBackendUrl = propBackendUrl || (import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws');
   const backendUrl = wsBackendUrl
     .replace(/^ws:\/\//, 'http://')
     .replace(/^wss:\/\//, 'https://')
