@@ -55,7 +55,7 @@ export default function NewAgentsModal({ agents, onAccept, onReject }: NewAgents
                     </div>
                     <div>
                         <h4 className="font-bold text-slate-800 text-sm">{agent.role}</h4>
-                        <p className="text-xs text-slate-500 line-clamp-2">{agent.systemPrompt}</p>
+                        <p className="text-xs text-slate-500 line-clamp-2">{agent.backstory}</p>
                     </div>
                 </div>
             ))}

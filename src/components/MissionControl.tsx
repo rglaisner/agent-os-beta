@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit, Check, UserPlus } from 'lucide-react';
+import { Play, Sparkles, Loader2, FileText, Upload, Paperclip, X, Users, User, Info, Trash2, Plus, AlertTriangle, Edit, Check, UserPlus, AlertCircle } from 'lucide-react';
 import Tooltip from './Tooltip';
 import AgentEditorModal from './AgentEditorModal';
 import SmartAgentSuggestion from './SmartAgentSuggestion';
-import { type Agent, type PlanStep, type PlanResponse } from '../constants'; // Import shared types
+import NewAgentsModal from './NewAgentsModal';
+import { type Agent, type PlanStep, type PlanResponse } from '../constants';
 
 interface MissionControlProps {
   agents: Agent[];
-  allAgents?: Agent[]; // Include SYSTEM agents for validation/planning
-  backendUrl?: string; // WebSocket backend URL (will be converted to HTTP for REST calls)
+  allAgents?: Agent[];
+  backendUrl?: string;
   onLaunch: (plan: PlanStep[], files: string[], processType: 'sequential' | 'hierarchical', goal?: string) => void;
   isRunning: boolean;
   onAddAgents: (agents: Agent[]) => void;
@@ -18,12 +19,11 @@ interface MissionControlProps {
 }
 
 export default function MissionControl({ agents, allAgents, backendUrl: propBackendUrl, onLaunch, isRunning, onAddAgents, onUpdateAgent, onGoalChange }: MissionControlProps) {
-  // Use allAgents (including SYSTEM) for validation/planning, fallback to agents if not provided
   const agentsForValidation = allAgents || agents;
 
   const [goal, setGoal] = useState('');
   const [plan, setPlan] = useState<PlanStep[]>([]);
-  const [planOverview, setPlanOverview] = useState<string>(''); // Make editable/settable
+  const [planOverview, setPlanOverview] = useState<string>('');
   const [uploadedFiles, setUploadedFiles] = useState<{name: string, path: string}[]>([]);
   const [isPlanning, setIsPlanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -31,14 +31,8 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
   const [processType, setProcessType] = useState<'sequential' | 'hierarchical'>('sequential');
   const [isModified, setIsModified] = useState(false);
-  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
-
-  // Agent Proposal State
-  const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
-  const [notification, setNotification] = useState<string | null>(null);
-
-  // New Agent Review State
+  
+  // Agent Review State
   const [pendingNewAgents, setPendingNewAgents] = useState<Agent[]>([]);
   const [showAgentReview, setShowAgentReview] = useState(false);
   const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
@@ -50,11 +44,8 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   // Smart Agent Suggestion State
   const [pendingSuggestedAgents, setPendingSuggestedAgents] = useState<Agent[]>([]);
 
-  // Convert WebSocket URL to HTTP URL for REST API calls
-  // Use prop if provided (should be WebSocket URL), otherwise fallback to env var
   const wsBackendUrl = propBackendUrl || (import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8000/ws');
   
-  // Validate backend URL
   if (!wsBackendUrl || wsBackendUrl === 'MISSING_VITE_BACKEND_URL') {
     console.error('[MissionControl] ERROR: Backend URL is not configured. Set VITE_BACKEND_URL in Vercel.');
   }
@@ -63,17 +54,14 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
     .replace(/^ws:\/\//, 'http://')
     .replace(/^wss:\/\//, 'https://')
     .replace(/\/ws$/, '')
-    .replace(/\/$/, ''); // Remove trailing slash if present
+    .replace(/\/$/, '');
     
   console.log('[MissionControl] Converted backend URL:', { wsBackendUrl, backendUrl });
 
   const reassignTasks = (rejectedAgentIds: string[]) => {
       if (rejectedAgentIds.length === 0) return;
 
-      // Find fallback agent: preferably "Manager", otherwise first agent
-      const manager = agents.find(a => a.role.toLowerCase().includes('manager'));
-      const fallbackAgent = manager || agents[0];
-      
+      const fallbackAgent = agents.find(a => a.role.toLowerCase().includes('manager')) || agents[0];
       if (!fallbackAgent) return;
 
       let reassignedCount = 0;
@@ -87,40 +75,41 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
 
       if (reassignedCount > 0) {
           setPlan(newPlan);
-          setNotification({
-              message: `Reassigned ${reassignedCount} tasks from rejected agents to ${fallbackAgent.role}.`,
-              type: 'info'
+          setIsModified(true);
+          setNotification({ 
+              message: `Tasks for rejected agents were reassigned to ${fallbackAgent.name || fallbackAgent.role}`, 
+              type: 'info' 
           });
-          // Clear notification after 5 seconds
           setTimeout(() => setNotification(null), 5000);
       }
   };
 
   const handleAcceptAgents = (selectedIds: string[]) => {
-      // 1. Add accepted agents
       const acceptedAgents = pendingNewAgents.filter(a => selectedIds.includes(a.id));
+      
       if (acceptedAgents.length > 0) {
           onAddAgents(acceptedAgents);
       }
 
-      // 2. Identify rejected agents
       const rejectedIds = pendingNewAgents
           .filter(a => !selectedIds.includes(a.id))
           .map(a => a.id);
 
-      // 3. Reassign tasks for rejected agents
       if (rejectedIds.length > 0) {
           reassignTasks(rejectedIds);
       }
 
       setPendingNewAgents([]);
+      setShowAgentReview(false);
+      setSelectedAgentIds(new Set());
   };
 
   const handleRejectAgents = () => {
-      // Treat all pending agents as rejected
       const rejectedIds = pendingNewAgents.map(a => a.id);
       reassignTasks(rejectedIds);
       setPendingNewAgents([]);
+      setShowAgentReview(false);
+      setSelectedAgentIds(new Set());
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,49 +135,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
     }
   };
 
-  const reassignTasks = (rejectedAgentIds: string[]) => {
-      // Find fallback agent from EXISTING agents
-      const fallbackAgent = agents.find(a => a.role.toLowerCase().includes('manager')) || agents[0];
-      
-      if (!fallbackAgent) return; // Should not happen if agents list is not empty
-
-      let reassignedCount = 0;
-      const newPlan = plan.map(step => {
-          if (rejectedAgentIds.includes(step.agentId)) {
-              reassignedCount++;
-              return { ...step, agentId: fallbackAgent.id };
-          }
-          return step;
-      });
-
-      setPlan(newPlan);
-      setIsModified(true);
-      
-      if (reassignedCount > 0) {
-           setNotification({ 
-               message: `Tasks for rejected agents were reassigned to ${fallbackAgent.name || fallbackAgent.role}`, 
-               type: 'info' 
-           });
-           // Auto-clear after 5s
-           setTimeout(() => setNotification(null), 5000);
-      }
-  };
-
-  const handleAcceptAgents = () => {
-      // Accept all pending agents
-      onAddAgents(pendingNewAgents);
-      setPendingNewAgents([]);
-      setNotification({ message: "New agents added to the team.", type: 'success' });
-      setTimeout(() => setNotification(null), 3000);
-  };
-
-  const handleRejectAgents = () => {
-      // Reject all pending agents and reassign their tasks
-      const rejectedIds = pendingNewAgents.map(a => a.id);
-      reassignTasks(rejectedIds);
-      setPendingNewAgents([]);
-  };
-
   const generatePlan = async () => {
     if (!goal) return;
     setIsPlanning(true);
@@ -196,19 +142,18 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
     setIsModified(false);
     setPendingNewAgents([]);
     setNotification(null);
+    setShowAgentReview(false);
 
     try {
-      // Include SYSTEM agents (like sys-manager) for plan generation
       const allAgentsForPlanning = agentsForValidation;
       
-      // Ensure all agents have required fields for backend (humanInput is required)
       const agentsForBackend = allAgentsForPlanning.map(agent => ({
         id: agent.id,
         role: agent.role,
         goal: agent.goal,
         backstory: agent.backstory,
         toolIds: agent.toolIds || [],
-        humanInput: agent.humanInput ?? false, // Default to false if not set
+        humanInput: agent.humanInput ?? false,
         reasoning: agent.reasoning ?? false,
         max_reasoning_attempts: agent.max_reasoning_attempts,
         max_iter: agent.max_iter,
@@ -239,13 +184,11 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       setPlan(data.plan);
 
       if (data.newAgents && data.newAgents.length > 0) {
-          // Filter out existing IDs to avoid duplicates if re-running
           const existingIds = new Set(agents.map(a => a.id));
           const uniqueNewAgents = data.newAgents
               .filter(a => !existingIds.has(a.id))
               .map(a => ({
                   ...a,
-                  // Ensure all required fields are present
                   id: a.id || `suggested-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   role: a.role || 'Agent',
                   goal: a.goal || '',
@@ -293,7 +236,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
 
   const handleAddStep = (idx: number) => {
       const newStep: PlanStep = {
-          id: `step-${Date.now()}`, // Ensure string ID
+          id: `step-${Date.now()}`,
           agentId: agents[0]?.id || 'sys-manager',
           instruction: 'New task instruction...',
           trainingIterations: 0
@@ -305,14 +248,10 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
   };
 
   const handleAgentSave = (updatedAgent: Agent) => {
-      // If it's a new agent (not in list), add it?
-      // Or just update existing.
       const exists = agents.find(a => a.id === updatedAgent.id);
       if (exists) {
           onUpdateAgent(updatedAgent.id, updatedAgent);
       } else {
-          // Should not happen in edit mode usually
-          // Ensure all required fields are present before adding
           const agentToAdd: Agent = {
               ...updatedAgent,
               id: updatedAgent.id || `custom-${Date.now()}`,
@@ -360,7 +299,8 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       return;
     }
     setError(null);
-    onLaunch(plan, uploadedFiles.map(f => f.path), processType);
+    if (onGoalChange) onGoalChange(goal);
+    onLaunch(plan, uploadedFiles.map(f => f.path), processType, goal);
   };
 
   return (
@@ -417,7 +357,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
             setPendingSuggestedAgents([]);
           }}
           onReview={() => {
-            // For now, just accept all on review - can be enhanced to show a modal
             try {
               onAddAgents(pendingSuggestedAgents);
               setPendingSuggestedAgents([]);
@@ -492,61 +431,14 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
         </div>
       </div>
 
-      {/* NEW AGENTS PROPOSAL */}
-      {pendingNewAgents.length > 0 && (
-          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl shrink-0 flex items-center justify-between animate-in fade-in slide-in-from-top-4">
-              <div className="flex items-center gap-3">
-                  <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                      <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                      <h4 className="font-bold text-indigo-900 text-sm">New Agents Proposed</h4>
-                      <p className="text-indigo-700 text-xs mt-0.5">The Planner suggests adding {pendingNewAgents.length} new specialist(s) for this mission.</p>
-                      <div className="flex gap-2 mt-2">
-                          {pendingNewAgents.map(a => (
-                              <span key={a.id} className="text-xs bg-white border border-indigo-200 px-2 py-0.5 rounded text-indigo-600 font-medium">
-                                  {a.role}
-                              </span>
-                          ))}
-                      </div>
-                  </div>
-              </div>
-              <div className="flex gap-2">
-                  <button
-                      onClick={handleRejectAgents}
-                      className="px-4 py-2 bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 hover:text-red-600 hover:border-red-200 rounded-lg text-sm font-bold transition-colors"
-                  >
-                      Reject All
-                  </button>
-                  <button
-                      onClick={handleAcceptAgents}
-                      className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition-colors"
-                  >
-                      <Check className="w-4 h-4" />
-                      Accept All
-                  </button>
-              </div>
-          </div>
-      )}
-
-      {notification && (
-          <div className={`p-4 rounded-xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-2 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-              <AlertCircle className="w-5 h-5" />
-              <p className="text-sm font-medium">{notification.message}</p>
-          </div>
-      )}
-
       {/* PLAN */}
       <div className="flex-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h3 className="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-sm"><FileText className="w-4 h-4 text-indigo-500" /> Execution Plan</h3>
           {plan.length > 0 && (
             <button
-              onClick={() => {
-                if (onGoalChange) onGoalChange(goal);
-                handleLaunch();
-              }}
-              disabled={isRunning}
+              onClick={handleLaunch}
+              disabled={isRunning || pendingNewAgents.length > 0}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md shadow-emerald-200 flex items-center gap-2 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
               title={pendingNewAgents.length > 0 ? "Please accept or reject proposed agents first" : "Launch Mission"}
             >
@@ -555,13 +447,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
             </button>
           )}
         </div>
-
-        {notification && (
-            <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-700 p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-pulse shrink-0">
-                <Info className="w-4 h-4" />
-                {notification}
-            </div>
-        )}
 
         {pendingNewAgents.length > 0 && (
             <div className="mb-4 bg-violet-50 border border-violet-200 p-4 rounded-lg flex flex-col gap-3 shrink-0">
@@ -578,20 +463,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                             {a.role}
                         </div>
                     ))}
-                </div>
-                <div className="flex gap-3 mt-1">
-                    <button 
-                        onClick={handleAcceptAgents}
-                        className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded shadow-sm flex items-center gap-1 transition-colors"
-                    >
-                        <Check className="w-3 h-3" /> Accept All
-                    </button>
-                    <button 
-                        onClick={handleRejectAgents}
-                        className="px-4 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded shadow-sm flex items-center gap-1 transition-colors"
-                    >
-                        <X className="w-3 h-3" /> Reject All
-                    </button>
                 </div>
                 <p className="text-[10px] text-violet-600/70 italic">
                     Rejecting agents will reassign their tasks to existing team members.
@@ -617,7 +488,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
             )}
 
             {plan.map((step, idx) => {
-                // Check if agent is in accepted agents OR pending agents
                 const assignedAgent = agents.find(a => a.id === step.agentId) || pendingNewAgents.find(a => a.id === step.agentId);
                 const isPendingAgent = pendingNewAgents.some(a => a.id === step.agentId);
 
@@ -634,9 +504,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                             >
                                 {agents.map(a => (
                                     <option key={a.id} value={a.id}>{a.role}</option>
-                                ))}
-                                {pendingNewAgents.map(a => (
-                                    <option key={a.id} value={a.id}>{a.role} (Proposed)</option>
                                 ))}
                             </select>
                             {isPendingAgent && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-200 font-medium">Pending Approval</span>}
@@ -673,7 +540,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                           rows={2}
                       />
 
-                      {/* Add Step Button (Hover) */}
                       <button
                           onClick={() => handleAddStep(idx)}
                           className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110 shadow-sm"
@@ -748,7 +614,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                  Reject All
                </button>
                <button 
-                 onClick={handleAcceptAgents}
+                 onClick={() => handleAcceptAgents(Array.from(selectedAgentIds))}
                  className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all active:scale-95"
                >
                  Confirm Selection
@@ -758,6 +624,15 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
         </div>
       )}
 
+      {/* New Agents Modal */}
+      {pendingNewAgents.length > 0 && !showAgentReview && (
+          <NewAgentsModal
+              agents={pendingNewAgents}
+              onAccept={handleAcceptAgents}
+              onReject={handleRejectAgents}
+          />
+      )}
+
       {/* Agent Editor Modal */}
       {editingAgent && (
           <AgentEditorModal
@@ -765,14 +640,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
               isOpen={!!editingAgent}
               onClose={() => setEditingAgent(null)}
               onSave={handleAgentSave}
-          />
-      )}
-
-      {pendingNewAgents.length > 0 && (
-          <NewAgentsModal
-              agents={pendingNewAgents}
-              onAccept={handleAcceptAgents}
-              onReject={handleRejectAgents}
           />
       )}
     </div>
