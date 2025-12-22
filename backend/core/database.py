@@ -85,8 +85,38 @@ class CustomTool(Base):
 # --- HELPER FUNCTIONS ---
 
 def init_db():
-    """Initialize the database tables."""
+    """Initialize the database tables and add missing columns if needed."""
     Base.metadata.create_all(bind=engine)
+    
+    # Add missing columns to existing database (SQLite migration)
+    db = SessionLocal()
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        columns = [col['name'] for col in inspector.get_columns('missions')]
+        
+        # Add missing columns if they don't exist
+        if 'category' not in columns:
+            db.execute(text('ALTER TABLE missions ADD COLUMN category VARCHAR'))
+            db.commit()
+        if 'execution_time' not in columns:
+            db.execute(text('ALTER TABLE missions ADD COLUMN execution_time FLOAT'))
+            db.commit()
+        if 'completed_at' not in columns:
+            db.execute(text('ALTER TABLE missions ADD COLUMN completed_at DATETIME'))
+            db.commit()
+        if 'agent_types' not in columns:
+            db.execute(text('ALTER TABLE missions ADD COLUMN agent_types TEXT'))
+            db.commit()
+    except Exception as e:
+        # If migration fails, log but don't crash (columns might already exist or table might not exist yet)
+        print(f"Database migration note: {e}")
+        try:
+            db.rollback()
+        except:
+            pass
+    finally:
+        db.close()
 
 def create_mission(goal: str):
     """Create a new mission and return its ID."""

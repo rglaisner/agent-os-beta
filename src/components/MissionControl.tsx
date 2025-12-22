@@ -135,6 +135,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
           setPlanOverview(data.narrative);
       }
 
+      // Process newAgents FIRST, then set plan, so validation can see them
       if (data.newAgents && data.newAgents.length > 0) {
           // Filter out existing IDs to avoid duplicates if re-running
           const existingIds = new Set(agents.map(a => a.id));
@@ -155,7 +156,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
                   humanInput: a.humanInput || false
               }));
           if (uniqueNewAgents.length > 0) {
-              // Show suggestion box instead of auto-adding
+              // Add to pending suggested agents BEFORE setting plan
               setPendingSuggestedAgents(uniqueNewAgents);
           }
       }
@@ -166,6 +167,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
           });
       }
 
+      // Set plan AFTER processing newAgents so validation can see them
       setPlan(data.plan);
     } catch (err) {
       console.error('[MissionControl] Planning error:', err);

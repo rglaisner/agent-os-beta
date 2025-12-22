@@ -195,11 +195,12 @@ async def generate_plan(request: PlanRequest):
     {agent_desc}
     {process_instruction}
 
-    If the available agents are insufficient to complete the goal, you MUST suggest new agents.
-    Assess if agents need training iterations (especially for low-context tasks). Default is 0.
-
-    CRITICAL: When assigning agents to steps, you MUST use one of these EXACT agent IDs: {', '.join(agent_ids)}
-    Do NOT invent new agent IDs. Use the IDs provided above.
+    CRITICAL RULES:
+    1. ALWAYS use existing agents FIRST. Only suggest new agents if NO existing agent can handle a task.
+    2. When assigning agents to steps, you MUST use one of these EXACT agent IDs: {', '.join(agent_ids)}
+    3. Do NOT invent new agent IDs in the plan steps. If you need a new agent, add it to "newAgents" and THEN use its ID in the plan.
+    4. If you create new agents, assign them IDs like "agent-{role-lowercase-with-hyphens}" (e.g., "agent-astrologer", "agent-data-analyst").
+    5. Assess if agents need training iterations (especially for low-context tasks). Default is 0.
 
     Create a JSON object with the following structure:
     {{
