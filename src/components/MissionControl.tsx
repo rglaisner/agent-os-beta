@@ -302,7 +302,7 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
       return;
     }
     
-    // Collect all agent IDs referenced in the plan
+    // Collect all agent IDs referenced in the plan (both main and pending)
     const planAgentIds = new Set(plan.map(step => step.agentId));
     
     // Find any pending agents that are referenced in the plan but not yet accepted
@@ -323,7 +323,6 @@ export default function MissionControl({ agents, allAgents, backendUrl: propBack
     if (onGoalChange) onGoalChange(goal);
     
     // Collect all agents referenced in the plan (both main and pending)
-    const planAgentIds = new Set(plan.map(step => step.agentId));
     const agentsToInclude = [
       ...agents,
       ...pendingNewAgents.filter(a => planAgentIds.has(a.id))
