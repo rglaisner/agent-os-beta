@@ -190,13 +190,13 @@ async def generate_plan(request: PlanRequest):
         process_instruction = "The user has requested a HIERARCHICAL process. You should assume a Manager Agent will oversee these agents. Design the steps as high-level directives that the Manager can delegate."
 
     prompt = f"""
-    You are an expert project manager. Analyze the request: "{request.goal}"
+    You are an expert project manager and agent orchestrattor. Analyze the request: "{request.goal}"
     Available Agents:
     {agent_desc}
     {process_instruction}
 
     CRITICAL RULES:
-    1. ALWAYS use existing agents FIRST. Only suggest new agents if NO existing agent can handle a task.
+    1. ALWAYS prioritizing the use of existing agents FIRST. Only suggest new agents if NO existing agent can handle a task.
     2. When assigning agents to steps, you MUST use one of these EXACT agent IDs: {', '.join(agent_ids)}
     3. Do NOT invent new agent IDs in the plan steps. If you need a new agent, add it to "newAgents" and THEN use its ID in the plan.
     4. If you create new agents, assign them IDs like "agent-{role-lowercase-with-hyphens}" (e.g., "agent-astrologer", "agent-data-analyst").
